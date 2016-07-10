@@ -15,6 +15,7 @@ struct Entity;
 list<Tileset*> tilesetList;
 list<Entity*> selectedEntities;
 list<Entity*> allEntities;
+
 int currentFrame;
 int currentLayer;
 int totalLayers;
@@ -24,6 +25,17 @@ Vector2f pressPos;
 bool mousePressed;
 bool entityMove;
 Vector2f pastPos;
+list<Entity*> copiedEntities;
+int copyFrame;
+
+struct CamInfo
+{
+	View view;
+	int zoomLevel;
+};
+
+map<int, CamInfo> camera;
+sf::RenderWindow *window;
 
 float length( Vector2f &v )
 {
@@ -95,11 +107,16 @@ void Entity::SetFaceRight( int frame, bool right )
 	}
 }
 
-Entity * MouseDownEntity( int frame, int mousex, int mousey )
+Entity * MouseDownEntity( int frame, Vector2f mouse )
 {
-	cout << "mousex: " << mousex << ", " << mousey << endl;
+	//cout << "mousex: " << mousex << ", " << mousey << endl;
 	Entity *mostFrontEntity = NULL;
-	Vector2f point( mousex, mousey );
+	Vector2f point = mouse;
+	//Vector2f point( mousex, mousey );
+	//Transform trans = camera[frame].getTransform();
+	//point = trans.transformPoint( point );
+	//Vector2f point = window->mapPixelToCoords(Vector2i( mousex, mousey ));
+	//cout << "frame: " << frame << ", point : " << point.x << ", " <<  point.y << endl;
 	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 	{
 		if( (*it)->images.count( frame ) > 0 )
@@ -163,6 +180,19 @@ list<Layer> layers;
 
 int main()
 {	
+	totalLayers = 10;
+	totalFrames = 10;
+	currentFrame = 1;
+	currentLayer = 1;
+
+	for( int i = 1; i < totalFrames; ++i )
+	{
+		camera[i].view.setCenter( 0, 0 );
+		camera[i].view.setSize( 1920, 1080 );
+		camera[i].zoomLevel = 20;
+		//cout << "i zoomlevel" << endl;
+	}
+
 	sf::Font arial;
 	arial.loadFromFile( "arial.ttf" );
 
@@ -170,18 +200,21 @@ int main()
 	layerText.setFont( arial );
 	layerText.setCharacterSize( 18 );
 	layerText.setColor( Color::Red );
-	layerText.setPosition( 700, 700 );
+	layerText.setPosition( 700, 680 );
 
 	sf::Text frameText;
 	frameText.setFont( arial );
 	frameText.setCharacterSize( 18 );
 	frameText.setColor( Color::Green );
-	frameText.setPosition( 700, 750 );
+	frameText.setPosition( 700, 720 );
 
-	totalLayers = 10;
-	totalFrames = 10;
-	currentFrame = 1;
-	currentLayer = 1;
+	sf::Text camScaleText;
+	camScaleText.setFont( arial );
+	camScaleText.setCharacterSize( 18 );
+	camScaleText.setColor( Color::Yellow );
+	camScaleText.setPosition( 700, 760 );
+
+	
 
 	Tileset * ts_glide = GetTileset( "Bosses/Bird/glide_256x256.png", 256, 256 );
 	Tileset * ts_wing = GetTileset( "Bosses/Bird/wing_256x256.png", 256, 256 );
@@ -197,7 +230,11 @@ int main()
 
 	allEntities.push_back( test );
 	//cout << "how many e" << endl;
-    sf::RenderWindow window(sf::VideoMode(800, 800), "SFML works!");
+	int windowWidth = 1920;
+	int windowHeight = 1080;
+	
+    window = new sf::RenderWindow( sf::VideoMode( windowWidth, windowHeight), "Character Animator", sf::Style::Default, sf::ContextSettings( 0, 0, 0, 0, 0 ));
+	
     sf::CircleShape shape(100.f);
     shape.setFillColor(sf::Color::Green);
 
@@ -205,19 +242,26 @@ int main()
 
 	Vector2f mPos;
 
-    while (window.isOpen())
+	View uiView;
+	uiView.setCenter( window->getSize().x / 2, window->getSize().y / 2 );
+	uiView.setSize( window->getSize().x, window->getSize().y );
+
+    while (window->isOpen())
     {
+		window->clear();
+		window->setView( camera[currentFrame].view );
+
         sf::Event ev;
 
 		pastPos = mPos;
-		Vector2i mousePos = Mouse::getPosition( window );
-		mPos = Vector2f( mousePos.x, mousePos.y );
+		Vector2i mousePos = Mouse::getPosition( *window );
+		mPos = window->mapPixelToCoords( mousePos );//Vector2f( mousePos.x, mousePos.y );
 		
 
-        while (window.pollEvent(ev))
+        while (window->pollEvent(ev))
         {
             if (ev.type == sf::Event::Closed)
-                window.close();
+                window->close();
 
 			switch( ev.type )
 			{
@@ -226,6 +270,8 @@ int main()
 			{
 				switch( ev.key.code )
 				{
+				case Keyboard::Escape:
+					return 0;
 				case Keyboard::Right:
 					if( currentFrame < totalFrames )
 					{
@@ -250,6 +296,56 @@ int main()
 						--currentLayer;
 					}
 					break;
+				case Keyboard::C:
+					if( ev.key.control )
+					{
+						//copiedEntities.clear();
+						copiedEntities = selectedEntities;
+						copyFrame = currentFrame;
+						
+					}
+					break;
+				case Keyboard::V:
+					if( ev.key.control )
+					{
+						if( !copiedEntities.empty() )
+						{
+							for( list<Entity*>::iterator it = copiedEntities.begin(); 
+								it != copiedEntities.end(); ++it )
+							{
+								(*it)->images[currentFrame] = (*it)->images[copyFrame];
+							}
+						}
+						
+					}
+					break;
+				case Keyboard::PageDown:
+					{
+						View &v = camera[currentFrame].view;
+						int &zLevel = camera[currentFrame].zoomLevel;
+						if( zLevel < 80 )
+						{
+							zLevel++;
+							v.setSize( 192 / 2 * zLevel, 108 / 2 * zLevel );
+						}
+
+						
+						
+					}
+					break;
+				case Keyboard::PageUp:
+					{
+						View &v = camera[currentFrame].view;
+						int &zLevel = camera[currentFrame].zoomLevel;
+						if( zLevel > 0 )
+						{
+							zLevel--;
+							v.setSize( 192 / 2 * zLevel, 108 / 2 * zLevel );
+						}
+						//v.setSize( v.getSize().x - windowWidth * .05, v.getSize().y - windowHeight * .05 );
+						//v.setSize( v.getSize().x, v.getSize().y );
+					}
+					break;
 				}
 
 				break;
@@ -259,7 +355,7 @@ int main()
 					if( ev.mouseButton.button == sf::Mouse::Button::Left && !entityMove )
 					{
 						mousePressed = true;
-						Entity *ent = MouseDownEntity( currentFrame, mPos.x, mPos.y );
+						Entity *ent = MouseDownEntity( currentFrame, mPos );
 						pressPos = mPos;
 						if( ent != NULL  )
 						{
@@ -314,25 +410,36 @@ int main()
 		}
 
 		stringstream ss;
-		ss << currentLayer << " / " << totalLayers << endl;
+		ss << currentLayer << " / " << totalLayers;
 		layerText.setString( ss.str() );
 		ss.str( "" );
 		ss.clear();
-		ss << currentFrame << " / " << totalFrames << endl;
+		ss << currentFrame << " / " << totalFrames;
 		frameText.setString( ss.str() );
+		ss.str("");
+		ss.clear();
+		Vector2f viewSize = window->getView().getSize();
+		ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << camera[currentFrame].zoomLevel << ", currentFrame: " << currentFrame;
+		camScaleText.setString( ss.str() );
+		//ss << currentFrame << " / " << totalFrames << endl;
 
 
-        window.clear();
-        window.draw(shape);
-		window.draw( layerText );
-		window.draw( frameText );
+       
+
+        window->draw(shape);
+
 		for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 		{
-			(*it)->Draw( currentFrame, &window );
+			(*it)->Draw( currentFrame, window );
 		}
-		//test.Draw( currentFrame, &window );
-		DrawSelectedEntityBoxes( currentFrame, &window );
-        window.display();
+		DrawSelectedEntityBoxes( currentFrame, window );
+
+		window->setView( uiView );
+		window->draw( layerText );
+		window->draw( frameText );
+		window->draw( camScaleText );
+
+        window->display();
     }
 
     return 0;
