@@ -45,3 +45,19 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+CutsceneAnimator.opensdf
+CutsceneAnimator.sdf
+*.suo
+CutsceneAnimator/CutsceneAnimator.vcxproj.user
+*.tlog
+CutsceneAnimator/Debug/CutsceneAnimator.exe.intermediate.manifest
+*.lastbuildstate
+CutsceneAnimator/Debug/CutsceneAnimator.log
+*.unsuccessfulbuild
+CutsceneAnimator/Debug/CutsceneAnimator.vcxprojResolveAssemblyReference.cache
+CutsceneAnimator/Release/CutsceneAnimator.log
+CutsceneAnimator/Release/CutsceneAnimator.log
+*.log
+CutsceneAnimator/Release/vc100.pdb
+*.pdb
+CutsceneAnimator/Release/CutsceneAnimator.log
