@@ -22,8 +22,8 @@ list<Entity*> allEntities;
 
 int currentFrame;
 int currentLayer;
-int totalLayers;
-int totalFrames;
+//int totalLayers;
+//int totalFrames;
 bool drawingRect;
 Vector2f pressPos;
 bool mousePressed;
@@ -43,6 +43,10 @@ Vector2f transformPoints[8];
 
 int transformRotationRadius;
 int transformScaleRadius;
+
+//list<CamInfo> camera;
+
+sf::RenderWindow *window;
 
 
 bool panning;
@@ -69,10 +73,46 @@ struct GUI : GUIHandler
 
 struct CamInfo
 {
+	CamInfo()
+	{
+		view.setCenter( 0, 0 );
+		view.setSize( 1920, 1080 );
+		zoomLevel = 40;
+		angleLevel = 0;
+	}
 	View view;
 	int zoomLevel;
 	int angleLevel;
 };
+
+
+
+//map<int, CamInfo> camera;
+list<CamInfo> camera;
+
+CamInfo & GetCamInfo( int frame )
+{
+	int index = 1;
+	for( list<CamInfo>::iterator it = camera.begin(); it != camera.end(); ++it )
+	{
+		if( index == frame )
+		{
+			return (*it);
+		}
+	}
+}
+
+list<CamInfo>::iterator GetCamIter( int frame )
+{
+	int index = 1;
+	for( list<CamInfo>::iterator it = camera.begin(); it != camera.end(); ++it )
+	{
+		if( index == frame )
+		{
+			return it;
+		}
+	}
+}
 
 float length( Vector2f &v )
 {
@@ -126,11 +166,6 @@ bool QuadContainsPoint( Vector2f &A, Vector2f &B, Vector2f&C, Vector2f&D, Vector
 	return false;
 }
 
-map<int, CamInfo> camera;
-sf::RenderWindow *window;
-
-
-
 Tileset * GetTileset( const string & s, int tileWidth, int tileHeight )
 {
 	for( list<Tileset*>::iterator it = tilesetList.begin(); it != tilesetList.end(); ++it )
@@ -174,11 +209,126 @@ struct Entity
 	void SetFaceRight( int frame, bool right );
 	void Draw( int frame, sf::RenderTarget *target );
 
-	map<int,SprInfo> images;
+	list<SprInfo*> images;
+	SprInfo * GetSprInfo( int frame );
+	list<SprInfo*>::iterator GetSprIter( int frame );
+	//map<int,SprInfo> images;
 	Vector2f GetPoint( int index );
 	int layer;
 };
 
+void NewBlankFrame()
+{
+	bool back = currentFrame == camera.size();
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		
+
+		if( back )
+		{
+			(*it)->images.push_back( (SprInfo*)NULL );
+		}
+		else
+		{
+			list<SprInfo*>::iterator sprit = (*it)->GetSprIter( currentFrame + 1 );
+			list<SprInfo*> &sprList = (*it)->images;
+			sprList.insert( sprit, (SprInfo*)NULL );
+		}
+		
+		
+		//(*sprit)
+	}
+
+	CamInfo c;
+	if( back )
+	{
+		camera.push_back( c );
+	}
+	else
+	{
+		list<CamInfo>::iterator cit = GetCamIter( currentFrame + 1 );
+		camera.insert( cit, c );
+	}
+	
+	++currentFrame;
+}
+
+void NewCopyFrame()
+{
+	bool back = currentFrame == camera.size();
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		list<SprInfo*>::iterator sprit = (*it)->GetSprIter( currentFrame );
+
+		SprInfo *nSpr = new SprInfo( *(*sprit) );
+		if( back )
+		{
+			(*it)->images.push_back( nSpr );
+		}
+		else
+		{
+			sprit = (*it)->GetSprIter( currentFrame + 1 );
+			list<SprInfo*> &sprList = (*it)->images;
+
+			sprList.insert( sprit, nSpr );
+			//sprList.insert( sprit, (SprInfo*)NULL );
+		}
+		
+		
+		//(*sprit)
+	}
+
+	CamInfo &c = GetCamInfo( currentFrame );
+	if( back )
+	{
+		camera.push_back( c );
+	}
+	else
+	{
+		list<CamInfo>::iterator cit = GetCamIter( currentFrame + 1 );
+		camera.insert( cit, c );
+	}
+	
+	++currentFrame;
+	//for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	//{
+	//	list<SprInfo*>::iterator sprit = (*it)->GetSprIter( currentFrame );
+	//	list<SprInfo*> &sprList = (*it)->images;
+
+	//	
+	//	//(*sprit)
+	//}
+
+	//++currentFrame;
+}
+
+SprInfo * Entity::GetSprInfo( int frame )
+{
+	int index = 1;
+	for( list<SprInfo*>::iterator it = images.begin(); it != images.end(); ++it )
+	{
+		if( index == frame )
+		{
+			return (*it);
+		}
+		//if( (*it)->
+		++index;
+	}
+}
+
+list<SprInfo*>::iterator Entity::GetSprIter( int frame )
+{
+	int index = 1;
+	for( list<SprInfo*>::iterator it = images.begin(); it != images.end(); ++it )
+	{
+		if( index == frame )
+		{
+			return it;
+		}
+		//if( (*it)->
+		++index;
+	}
+}
 
 //Vector2f Entity::GetPoint( int frame, int index )
 void UpdateTransformPoints()
@@ -186,7 +336,11 @@ void UpdateTransformPoints()
 	assert( selectedEntities.size() == 1 );
 	Entity *e = selectedEntities.front();
 	
-	Sprite &spr = e->images[currentFrame].sprite;
+	SprInfo *sprInfo = e->GetSprInfo(currentFrame);
+	if( sprInfo == NULL )
+		return;
+
+	Sprite &spr = sprInfo->sprite;
 	Transform t;
 	t.rotate( spr.getRotation() );
 	t.scale( spr.getScale() );
@@ -244,12 +398,14 @@ void UpdateTransformPoints()
 
 void Entity::Draw( int frame, RenderTarget *target )
 {
-	target->draw( images[frame].sprite );
+	SprInfo *sprInfo = GetSprInfo(frame);
+	if( sprInfo != NULL )
+		target->draw( sprInfo->sprite );
 }
 
 void Entity::SetFaceRight( int frame, bool right )
 {
-	SprInfo oldInfo = images[frame];
+	SprInfo &oldInfo = *GetSprInfo(frame);
 	//bool &old = images[frame].facingRight;
 	if( oldInfo.facingRight != right )
 	{
@@ -272,9 +428,9 @@ Entity * MouseDownEntity( int frame, Vector2f mouse )
 	//cout << "frame: " << frame << ", point : " << point.x << ", " <<  point.y << endl;
 	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 	{
-		if( (*it)->images.count( frame ) > 0 )
+		if( (*it)->GetSprInfo(frame) != NULL )
 		{
-			Sprite &spr = (*it)->images[frame].sprite;
+			Sprite &spr = (*it)->GetSprInfo(frame)->sprite;
 			Vector2f scalePoints[8];
 			FloatRect fr = spr.getLocalBounds();
 
@@ -375,7 +531,11 @@ void DrawSelectedEntityBoxes( int frame, sf::RenderTarget *target )
 	sf::RectangleShape rs;
 	for( list<Entity*>::iterator it = selectedEntities.begin(); it != selectedEntities.end(); ++it )
 	{
-		Sprite &spr = (*it)->images[frame].sprite;
+		SprInfo *sprInfo = (*it)->GetSprInfo(frame);
+		if( sprInfo == NULL )
+			continue;
+
+		Sprite &spr = sprInfo->sprite;
 		FloatRect fr = spr.getLocalBounds();
 
 		rs.setRotation( spr.getRotation() );
@@ -532,20 +692,12 @@ int main()
 	//gs->Set( 0, 0 Sprite( 
 	//Panel *p = new Panel(
 
-	totalLayers = 10;
-	totalFrames = 10;
+	//totalLayers = 10;
+	//totalFrames = 10;
 	currentFrame = 1;
 	currentLayer = 1;
 
-	for( int i = 1; i < totalFrames; ++i )
-	{
-		camera[i].view.setCenter( 0, 0 );
-		camera[i].view.setSize( 1920, 1080 );
-		camera[i].zoomLevel = 40;
-		camera[i].angleLevel = 0;
-		//cout << "i zoomlevel" << endl;
-	}
-
+	
 	sf::Font arial;
 	arial.loadFromFile( "arial.ttf" );
 
@@ -569,16 +721,40 @@ int main()
 
 	
 
+	SprInfo *nSpr = new SprInfo();
 	
 	
 	Entity *test = new Entity;
-	Sprite &tSprite = test->images[1].sprite;
+	test->images.push_back( nSpr );
+	Sprite &tSprite = test->GetSprInfo(1)->sprite;
 	tSprite.setTexture( *ts_kick->texture );
 	tSprite.setTextureRect( ts_kick->GetSubRect( 5 ) );
 	tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
 	tSprite.setPosition( 400, 400 );
 
 	allEntities.push_back( test );
+
+	int numFrames = allEntities.front()->images.size();
+	for( int i = 0; i < numFrames; ++i )
+	{
+		camera.push_back( CamInfo() );
+		/*CamInfo &ci = camera.back();
+		ci.view.setCenter( 0, 0 );
+		ci.view.setSize( 1920, 1080 );
+		ci.zoomLevel = 40;
+		ci.angleLevel = 0;*/
+	}
+	//for( int i = 1; i <= numFrames; ++i )
+	//{
+	//	camera[i].view.setCenter( 0, 0 );
+	//	camera[i].view.setSize( 1920, 1080 );
+	//	camera[i].zoomLevel = 40;
+	//	camera[i].angleLevel = 0;
+	//	//cout << "i zoomlevel" << endl;
+	//}
+
+
+
 	//cout << "how many e" << endl;
 	int windowWidth = 1920;
 	int windowHeight = 1080;
@@ -606,7 +782,7 @@ int main()
 
     while (window->isOpen())
     {
-		View &currView = camera[currentFrame].view;
+		View &currView = GetCamInfo( currentFrame ).view;
 		window->clear();
 		window->setView( currView );
 
@@ -616,9 +792,12 @@ int main()
 		Vector2i mousePos = Mouse::getPosition( *window );
 		mPos = window->mapPixelToCoords( mousePos );//Vector2f( mousePos.x, mousePos.y );
 		
-
+		
         while (window->pollEvent(ev))
         {
+			numFrames = allEntities.front()->images.size();
+			int numLayers = allEntities.size();
+
             if (ev.type == sf::Event::Closed)
                 window->close();
 
@@ -632,19 +811,24 @@ int main()
 				case Keyboard::Escape:
 					return 0;
 				case Keyboard::Right:
-					if( currentFrame < totalFrames )
+					if( currentFrame < numFrames )
 					{
 						++currentFrame;
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
 					}
 					break;
 				case Keyboard::Left:
 					if( currentFrame > 1 )
 					{
 						--currentFrame;
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
 					}
 					break;
 				case Keyboard::Up:
-					if( currentLayer < totalLayers )
+					if( currentLayer < numLayers )
 					{
 						++currentLayer;
 					}
@@ -653,6 +837,8 @@ int main()
 					if( currentLayer > 1 )
 					{
 						--currentLayer;
+
+						
 					}
 					break;
 				case Keyboard::C:
@@ -667,15 +853,28 @@ int main()
 				case Keyboard::V:
 					if( ev.key.control )
 					{
-						if( !copiedEntities.empty() )
+						/*if( !copiedEntities.empty() )
 						{
 							for( list<Entity*>::iterator it = copiedEntities.begin(); 
 								it != copiedEntities.end(); ++it )
 							{
-								(*it)->images[currentFrame] = (*it)->images[copyFrame];
+								*(*it)->GetSprInfo(currentFrame) = *(*it)->GetSprInfo(copyFrame);
 							}
-						}
+						}*/
 						
+					}
+					break;
+				case Keyboard::B:
+					if( ev.key.alt )
+					{
+						//blank keyframe
+						NewBlankFrame();
+					}
+					break;
+				case Keyboard::N:
+					if( ev.key.alt )
+					{
+						NewCopyFrame();
 					}
 					break;
 				case Keyboard::PageDown:
@@ -684,7 +883,7 @@ int main()
 						|| Keyboard::isKeyPressed( Keyboard::RShift ) )
 						{
 							int fac = 2;
-							int &aLevel = camera[currentFrame].angleLevel;
+							int &aLevel = GetCamInfo( currentFrame ).angleLevel;
 							if( aLevel == 360 / fac - 1 )
 							{
 								aLevel = 0;
@@ -697,7 +896,7 @@ int main()
 						}
 						else
 						{
-							int &zLevel = camera[currentFrame].zoomLevel;
+							int &zLevel =  GetCamInfo( currentFrame ).zoomLevel;
 							if( zLevel < 80 )
 							{
 								zLevel++;
@@ -712,7 +911,7 @@ int main()
 						|| Keyboard::isKeyPressed( Keyboard::RShift ) )
 						{
 							int fac = 2;
-							int &aLevel = camera[currentFrame].angleLevel;
+							int &aLevel =  GetCamInfo( currentFrame ).angleLevel;
 							if( aLevel == 0 )
 							{
 								aLevel = 360 / fac - 1;
@@ -725,7 +924,7 @@ int main()
 						}
 						else
 						{
-							int &zLevel = camera[currentFrame].zoomLevel;
+							int &zLevel =  GetCamInfo( currentFrame ).zoomLevel;
 							if( zLevel > 0 )
 							{
 								zLevel--;
@@ -797,9 +996,9 @@ int main()
 				}
 			case sf::Event::MouseWheelMoved:
 				{
-
-					int &zLevel = camera[currentFrame].zoomLevel;
-					int &aLevel = camera[currentFrame].angleLevel;
+					CamInfo &ci = GetCamInfo( currentFrame );
+					int &zLevel = ci.zoomLevel;
+					int &aLevel = ci.angleLevel;
 					if( Keyboard::isKeyPressed( Keyboard::LShift )
 						|| Keyboard::isKeyPressed( Keyboard::RShift ) )
 					{
@@ -955,7 +1154,7 @@ int main()
 				for( list<Entity*>::iterator it = selectedEntities.begin(); it !=
 					selectedEntities.end(); ++it )
 				{
-					Sprite &sp = (*it)->images[currentFrame].sprite;
+					Sprite &sp = (*it)->GetSprInfo(currentFrame)->sprite;
 					sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
 					
 				}
@@ -971,7 +1170,7 @@ int main()
 				assert( selectedEntities.size() == 1 );
 				Entity *e = selectedEntities.front();
 
-				Sprite &sp = e->images[currentFrame].sprite;
+				Sprite &sp = e->GetSprInfo(currentFrame)->sprite;
 				float sprAngle = sp.getRotation();
 
 				Vector2f horizAxis( 1, 0 );
@@ -1008,7 +1207,7 @@ int main()
 				assert( selectedEntities.size() == 1 );
 				Entity *e = selectedEntities.front();
 
-				Sprite &sp = e->images[currentFrame].sprite;
+				Sprite &sp = e->GetSprInfo(currentFrame)->sprite;
 				
 				Vector2f horizAxis( 1, 0 );
 				Transform t;
@@ -1043,7 +1242,7 @@ int main()
 				assert( selectedEntities.size() == 1 );
 				Entity *e = selectedEntities.front();
 
-				Sprite &sp = e->images[currentFrame].sprite;
+				Sprite &sp = e->GetSprInfo(currentFrame)->sprite;
 				Vector2f horizAxis( 1, 0 );
 				Transform t;
 				t.rotate( sp.getRotation() );
@@ -1087,7 +1286,7 @@ int main()
 			{
 				assert( selectedEntities.size() == 1 );
 				Entity *e = selectedEntities.front();
-				Sprite &sp = e->images[currentFrame].sprite;
+				Sprite &sp = e->GetSprInfo(currentFrame)->sprite;
 				Vector2f tDiff = pressPos - sp.getPosition();
 				rotatePressAngle = atan2( tDiff.y, tDiff.x );
 				Vector2f diff = mPos - sp.getPosition();
@@ -1118,16 +1317,16 @@ int main()
 		}
 
 		stringstream ss;
-		ss << currentLayer << " / " << totalLayers;
+		ss << currentLayer << " / " << allEntities.size();
 		layerText.setString( ss.str() );
 		ss.str( "" );
 		ss.clear();
-		ss << currentFrame << " / " << totalFrames;
+		ss << currentFrame << " / " << allEntities.front()->images.size();
 		frameText.setString( ss.str() );
 		ss.str("");
 		ss.clear();
 		Vector2f viewSize = window->getView().getSize();
-		ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << camera[currentFrame].zoomLevel << ", currentFrame: " << currentFrame;
+		ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << GetCamInfo( currentFrame ).zoomLevel << ", currentFrame: " << currentFrame;
 		camScaleText.setString( ss.str() );
 		//ss << currentFrame << " / " << totalFrames << endl;
 
