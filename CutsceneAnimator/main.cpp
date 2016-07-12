@@ -11,6 +11,8 @@
 using namespace std;
 using namespace sf;
 
+#define PI 3.14159
+
 struct Entity;
 //const int NUM_FRAMES = 60;
 
@@ -34,6 +36,8 @@ int selectedPointIndex;
 Vector2f pastPos;
 list<Entity*> copiedEntities;
 int copyFrame;
+
+float rotatePressAngle;
 sf::CircleShape transformCircles[8];
 Vector2f transformPoints[8];
 
@@ -866,7 +870,7 @@ int main()
 							selectedPointIndex = i;
 							if( i == 0 || i == 2 || i == 5 || i == 7 )
 							{
-								cout << "Scale x and y" << endl;
+								//cout << "Scale x and y" << endl;
 								entityScaleXY = true;
 								//entityScaleX = true;
 								//entityScaleY = true;
@@ -874,25 +878,73 @@ int main()
 							}
 							else if( i == 3 || i == 4 )
 							{
-								cout << "Scale x" << endl;
+								//cout << "Scale x" << endl;
 								entityScaleX = true;
 								break;
 							}
 							else if( i == 1 || i == 6 )
 							{
-								cout << "Scale y" << endl;
+								//cout << "Scale y" << endl;
 								entityScaleY = true;
 								break;
 							}
 							//entityRotate = true;
 						}
+					}
+
+					if( !entityScaleX && !entityScaleY && !entityScaleXY )
+					{
+						//did not find scaler. time to check rotation
+						
+						Vector2f topLeft = transformPoints[0];
+						Vector2f topRight = transformPoints[2];
+						Vector2f botLeft = transformPoints[5];
+						Vector2f botRight = transformPoints[7];
+						//cout << "top left: " << topLeft.x << " , "<< topLeft.y << endl;
+						Vector2f tlDiff = mPos - topLeft;
+						Vector2f trDiff = mPos - topRight;
+						Vector2f blDiff = mPos - botLeft;
+						Vector2f brDiff = mPos - botRight;
+
+						if( length( tlDiff ) <= transformRotationRadius && tlDiff.x <= 0
+							&& tlDiff.y <= 0 )
+						{
+							entityRotate = true;
+							//rotatePressAngle =  atan2( tlDiff.y, tlDiff.x );
+						}
+						else if ( length( trDiff ) <= transformRotationRadius && trDiff.x >= 0
+							&& trDiff.y <= 0 )
+						{
+							entityRotate = true;
+							//rotatePressAngle =  atan2( trDiff.y, trDiff.x );
+						}
+						else if( length( blDiff ) <= transformRotationRadius && blDiff.x <= 0
+							&& blDiff.y >= 0 )
+						{
+							entityRotate = true;
+							//rotatePressAngle =  atan2( blDiff.y, blDiff.x );
+						}
+						else if ( length( brDiff ) <= transformRotationRadius && brDiff.x >= 0
+							&& brDiff.y >= 0 )
+						{
+							entityRotate = true;
+							//rotatePressAngle =  atan2( brDiff.y, brDiff.x );
+						}
+
+
+						if( !entityRotate )
+						{
+							entityMove = true;
+						}
 						else
 						{
-							
-							//entityMove = true;
-							//break;
+							//Vector2f diff = pressPos - sp.
+							//rotatePressAngle =  atan2( brDiff.y, brDiff.x );
+	
 						}
 					}
+
+					
 					//if( length( mPos - 
 					
 				}
@@ -905,7 +957,11 @@ int main()
 				{
 					Sprite &sp = (*it)->images[currentFrame].sprite;
 					sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
+					
 				}
+
+				if( selectedEntities.size() == 1 )
+					UpdateTransformPoints();
 
 			}
 			else if( entityScaleX )
@@ -916,7 +972,15 @@ int main()
 				Entity *e = selectedEntities.front();
 
 				Sprite &sp = e->images[currentFrame].sprite;
-				float xDiff = mPos.x - pastPos.x;
+				float sprAngle = sp.getRotation();
+
+				Vector2f horizAxis( 1, 0 );
+				Transform t;
+				t.rotate( sp.getRotation() );
+				float xDiff = dot( mPos - pastPos, horizAxis );
+				
+				//sprAngle = sprAngle / 180 * PI;
+				//float xDiff = dor( mPos - pastPos, //mPos.x - pastPos.x;
 
 				float width = sp.getLocalBounds().width;
 				float hWidth = width / 2;
@@ -932,7 +996,7 @@ int main()
 					prop = 1 + prop;
 				}
 				
-				cout << "scaling: " << prop << endl;
+				//cout << "scaling: " << prop << endl;
 				sp.scale( prop, 1 );
 				UpdateTransformPoints();
 				//sp.setScale( prop, sp.getScale().y );
@@ -945,20 +1009,26 @@ int main()
 				Entity *e = selectedEntities.front();
 
 				Sprite &sp = e->images[currentFrame].sprite;
-				float yDiff = mPos.y - pastPos.y;
+				
+				Vector2f horizAxis( 1, 0 );
+				Transform t;
+				t.rotate( sp.getRotation() );
 
-				float height = sp.getLocalBounds().width;
+				float yDiff = cross( mPos - pastPos, horizAxis );
+				//float yDiff = mPos.y - pastPos.y;
+
+				float height = sp.getLocalBounds().height;
 				float hHeight = height / 2;
 
 				float prop = yDiff / hHeight;
 				
 				if( selectedPointIndex == 1 )
 				{
-					prop = 1 - prop;
+					prop = 1 + prop;
 				}
 				else 
 				{
-					prop = 1 + prop;
+					prop = 1 - prop;
 				}
 				
 				//cout << "scaling: " << prop << endl;
@@ -974,8 +1044,14 @@ int main()
 				Entity *e = selectedEntities.front();
 
 				Sprite &sp = e->images[currentFrame].sprite;
-				float xDiff = mPos.x - pastPos.x;
-				float yDiff = mPos.y - pastPos.y;
+				Vector2f horizAxis( 1, 0 );
+				Transform t;
+				t.rotate( sp.getRotation() );
+
+				float xDiff = dot( mPos - pastPos, horizAxis );
+				float yDiff = cross( mPos - pastPos, horizAxis );
+				//float xDiff = mPos.x - pastPos.x;
+				//float yDiff = mPos.y - pastPos.y;
 
 				float width = sp.getLocalBounds().width;
 				float height = sp.getLocalBounds().height;
@@ -985,7 +1061,7 @@ int main()
 				float propX = xDiff / hWidth;
 				float propY = yDiff / hHeight;
 
-				cout << "selectedPointIndex: " << selectedPointIndex << endl;
+				//cout << "selectedPointIndex: " << selectedPointIndex << endl;
 				if( selectedPointIndex == 0 || selectedPointIndex == 5 )
 				{
 					propX = 1 - propX;
@@ -995,38 +1071,34 @@ int main()
 					propX = 1 + propX;
 				}
 
-				/*if( selectedPointIndex == 2 || selectedPointIndex == 7 )
-				{
-					propX = 1 + propX;
-				}
-				else 
-				{
-					propX = 1 - propX;
-				}*/
-
 				if( selectedPointIndex == 0 || selectedPointIndex == 2 )
 				{
-					propY = 1 - propY;
-				}
-				else 
-				{
-					propY = 1 + propY;
-				}
-
-				/*if( selectedPointIndex == 5 || selectedPointIndex == 7 )
-				{
 					propY = 1 + propY;
 				}
 				else 
 				{
 					propY = 1 - propY;
-				}*/
+				}
 
-
-				
-				//cout << "scaling: " << prop << endl;
 				sp.scale( propX, propY );
 				UpdateTransformPoints();
+			}
+			else if( entityRotate )
+			{
+				assert( selectedEntities.size() == 1 );
+				Entity *e = selectedEntities.front();
+				Sprite &sp = e->images[currentFrame].sprite;
+				Vector2f tDiff = pressPos - sp.getPosition();
+				rotatePressAngle = atan2( tDiff.y, tDiff.x );
+				Vector2f diff = mPos - sp.getPosition();
+				float angle = atan2( diff.y, diff.x );
+				//cout << "current angle: " << angle << endl;
+				//cout << "rotate press angle: " << rotatePressAngle << endl;
+
+				sp.setRotation( (angle - rotatePressAngle) / PI * 180 );
+
+				UpdateTransformPoints();
+				//float originalAngle = 
 			}
 		}
 		if( Mouse::isButtonPressed( Mouse::Middle ) )
