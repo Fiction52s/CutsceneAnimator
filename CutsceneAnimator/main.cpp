@@ -99,6 +99,7 @@ CamInfo & GetCamInfo( int frame )
 		{
 			return (*it);
 		}
+		++index;
 	}
 }
 
@@ -111,6 +112,7 @@ list<CamInfo>::iterator GetCamIter( int frame )
 		{
 			return it;
 		}
+		++index;
 	}
 }
 
@@ -289,7 +291,7 @@ void NewCopyFrame()
 		camera.insert( cit, c );
 	}
 	
-	++currentFrame;
+	//++currentFrame;
 	//for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 	//{
 	//	list<SprInfo*>::iterator sprit = (*it)->GetSprIter( currentFrame );
@@ -299,7 +301,7 @@ void NewCopyFrame()
 	//	//(*sprit)
 	//}
 
-	//++currentFrame;
+	++currentFrame;
 }
 
 SprInfo * Entity::GetSprInfo( int frame )
@@ -869,12 +871,15 @@ int main()
 					{
 						//blank keyframe
 						NewBlankFrame();
+						currView = GetCamInfo( currentFrame ).view;
+						cout << "currentFrame : " << currentFrame << endl;
 					}
 					break;
 				case Keyboard::N:
 					if( ev.key.alt )
 					{
 						NewCopyFrame();
+						currView = GetCamInfo( currentFrame ).view;
 					}
 					break;
 				case Keyboard::PageDown:
