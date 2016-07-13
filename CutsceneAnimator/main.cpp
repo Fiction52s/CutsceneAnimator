@@ -92,6 +92,7 @@ list<CamInfo> camera;
 
 CamInfo & GetCamInfo( int frame )
 {
+	//cout << "frame: " << frame << endl;
 	int index = 1;
 	for( list<CamInfo>::iterator it = camera.begin(); it != camera.end(); ++it )
 	{
@@ -101,6 +102,8 @@ CamInfo & GetCamInfo( int frame )
 		}
 		++index;
 	}
+
+	assert( false );
 }
 
 list<CamInfo>::iterator GetCamIter( int frame )
@@ -114,6 +117,8 @@ list<CamInfo>::iterator GetCamIter( int frame )
 		}
 		++index;
 	}
+
+	assert( false );
 }
 
 float length( Vector2f &v )
@@ -304,6 +309,83 @@ void NewCopyFrame()
 	++currentFrame;
 }
 
+void RemoveCurrentFrame()
+{
+	
+	/*camera.pop_front();
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		(*it)->images.pop_front();
+	}
+	cout << "currFrame: " << currentFrame << endl;
+	return;*/
+
+	int numFrames = camera.size();
+
+	if( numFrames == 1 )
+	{
+		return;
+	}
+
+	list<CamInfo>::iterator cit = GetCamIter( currentFrame );
+	if( currentFrame == 1 )
+	{
+		//cout << "camera pop front" << endl;
+		camera.pop_front();
+	}
+	else if( currentFrame == numFrames )
+	{
+		camera.pop_back();
+	}
+	else
+	{
+		camera.erase( cit );
+	}
+
+	//cout << "camera size is now: " << camera.size() << endl;
+
+	//cout << "removing frame after camera stuff" << endl;
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		list<SprInfo*>::iterator sprinfoIt = (*it)->GetSprIter( currentFrame );
+
+		if( (*sprinfoIt) != NULL )
+		{
+			delete (*sprinfoIt);
+			//cout << "deleting sprite info" << endl;
+		}
+
+		if( currentFrame == numFrames )
+		{
+			(*it)->images.pop_back();
+			//cout << "popping back" << endl;
+			--currentFrame;
+		}
+		else if( currentFrame == 1 )
+		{
+			(*it)->images.pop_front();
+			//cout << "popping front! size: " << (*it)->images.size() << endl;
+			
+		}
+		else
+		{
+			(*it)->images.erase( sprinfoIt );
+			//cout << "erasing" << endl;
+		}
+		
+		//cout << "erasing from " << endl;
+		//currentFrame--;
+	}
+	//cout << "rfend" << endl;
+	
+
+
+	//cout << "num frame: " << camera.size() << endl;
+	//for( list<CamInfo>::iterator it = camera.begin(); it != camera.end(); ++it )
+	//{
+//	}
+}
+
 SprInfo * Entity::GetSprInfo( int frame )
 {
 	int index = 1;
@@ -330,6 +412,8 @@ list<SprInfo*>::iterator Entity::GetSprIter( int frame )
 		//if( (*it)->
 		++index;
 	}
+
+	assert( false );
 }
 
 //Vector2f Entity::GetPoint( int frame, int index )
@@ -530,16 +614,21 @@ Entity * MouseDownEntity( int frame, Vector2f mouse )
 
 void DrawSelectedEntityBoxes( int frame, sf::RenderTarget *target )
 {
+	//cout << "Start: " << frame << endl;
+
 	sf::RectangleShape rs;
+	//cout << "end" << endl;
 	for( list<Entity*>::iterator it = selectedEntities.begin(); it != selectedEntities.end(); ++it )
 	{
+		//	cout << "End" << endl;
 		SprInfo *sprInfo = (*it)->GetSprInfo(frame);
+		
 		if( sprInfo == NULL )
 			continue;
-
+		
 		Sprite &spr = sprInfo->sprite;
 		FloatRect fr = spr.getLocalBounds();
-
+	
 		rs.setRotation( spr.getRotation() );
 		rs.setSize( Vector2f( fr.width * spr.getScale().x, fr.height * spr.getScale().y ) );
 		rs.setFillColor( Color::Transparent );
@@ -549,13 +638,13 @@ void DrawSelectedEntityBoxes( int frame, sf::RenderTarget *target )
 		//rs.setScale( spr.getScale() );
 		rs.setOutlineColor( Color::Cyan );
 		rs.setOutlineThickness( 3 );
-
-		//Vertex border[ 4 * 4 ];
-		/*for( int i = 0; i < 4; ++i )
-		{
-			Vector2f start 
-		}*/
-		//rs.setRotation( spr.getRotation() );
+		//
+		////Vertex border[ 4 * 4 ];
+		///*for( int i = 0; i < 4; ++i )
+		//{
+		//	Vector2f start 
+		//}*/
+		////rs.setRotation( spr.getRotation() );
 		target->draw( rs );
 		/*sf::FloatRect fr = spr.getGlobalBounds();
 		rs.setSize( Vector2f( fr.width, fr.height ) );
@@ -619,7 +708,7 @@ void DrawSelectedEntityBoxes( int frame, sf::RenderTarget *target )
 
 	}
 
-	
+	cout << "true end" << endl;
 }
 
 struct Layer
@@ -736,16 +825,16 @@ int main()
 
 	allEntities.push_back( test );
 
-	int numFrames = allEntities.front()->images.size();
-	for( int i = 0; i < numFrames; ++i )
-	{
+	//allEntities.front()->images.size();
+	//for( int i = 0; i < numFrames; ++i )
+	//{
 		camera.push_back( CamInfo() );
 		/*CamInfo &ci = camera.back();
 		ci.view.setCenter( 0, 0 );
 		ci.view.setSize( 1920, 1080 );
 		ci.zoomLevel = 40;
 		ci.angleLevel = 0;*/
-	}
+	//}
 	//for( int i = 1; i <= numFrames; ++i )
 	//{
 	//	camera[i].view.setCenter( 0, 0 );
@@ -782,11 +871,13 @@ int main()
 	uiView.setCenter( window->getSize().x / 2, window->getSize().y / 2 );
 	uiView.setSize( window->getSize().x, window->getSize().y );
 
+	int numFrames = camera.size();
+
     while (window->isOpen())
     {
-		View &currView = GetCamInfo( currentFrame ).view;
+		View *currView = &GetCamInfo( currentFrame ).view;
 		window->clear();
-		window->setView( currView );
+		window->setView( *currView );
 
         sf::Event ev;
 
@@ -797,7 +888,7 @@ int main()
 		
         while (window->pollEvent(ev))
         {
-			numFrames = allEntities.front()->images.size();
+			numFrames = camera.size();//allEntities.front()->images.size();
 			int numLayers = allEntities.size();
 
             if (ev.type == sf::Event::Closed)
@@ -819,6 +910,8 @@ int main()
 
 						if( selectedEntities.size() == 1 )
 							UpdateTransformPoints();
+
+						currView = &GetCamInfo( currentFrame ).view;
 					}
 					break;
 				case Keyboard::Left:
@@ -827,6 +920,8 @@ int main()
 						--currentFrame;
 						if( selectedEntities.size() == 1 )
 							UpdateTransformPoints();
+
+						currView = &GetCamInfo( currentFrame ).view;
 					}
 					break;
 				case Keyboard::Up:
@@ -844,11 +939,32 @@ int main()
 					}
 					break;
 				case Keyboard::C:
-					if( ev.key.control )
+					if( ev.key.alt )//ev.key.control )
 					{
+						if( numFrames == 1 )
+						{
+							break;
+						}
+						if( currentFrame == numFrames )
+						{
+							currView = &GetCamInfo( currentFrame - 1 ).view;
+						}
+						else
+						{
+							currView = &GetCamInfo( currentFrame ).view;
+						}
+
+						RemoveCurrentFrame();
+						//cout << "get cam info: " << currentFrame << endl;
+						
+						numFrames = camera.size();//allEntities.front()->images.size();
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
+						//cout << "currentFrame : " << currentFrame << endl;
 						//copiedEntities.clear();
-						copiedEntities = selectedEntities;
-						copyFrame = currentFrame;
+						//copiedEntities = selectedEntities;
+						//copyFrame = currentFrame;
 						
 					}
 					break;
@@ -871,15 +987,16 @@ int main()
 					{
 						//blank keyframe
 						NewBlankFrame();
-						currView = GetCamInfo( currentFrame ).view;
-						cout << "currentFrame : " << currentFrame << endl;
+						currView = &GetCamInfo( currentFrame ).view;
+						//cout << "currentFrame : " << currentFrame << endl;
 					}
 					break;
 				case Keyboard::N:
 					if( ev.key.alt )
 					{
 						NewCopyFrame();
-						currView = GetCamInfo( currentFrame ).view;
+						currView = &GetCamInfo( currentFrame ).view;
+						//numFrames = allEntities.front()->images.size();
 					}
 					break;
 				case Keyboard::PageDown:
@@ -897,7 +1014,7 @@ int main()
 							{
 								++aLevel;
 							}
-							currView.setRotation( aLevel * fac );
+							currView->setRotation( aLevel * fac );
 						}
 						else
 						{
@@ -905,7 +1022,7 @@ int main()
 							if( zLevel < 80 )
 							{
 								zLevel++;
-								currView.setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
+								currView->setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
 							}
 						}
 					}
@@ -925,7 +1042,7 @@ int main()
 							{
 								--aLevel;
 							}
-							currView.setRotation( aLevel * fac );
+							currView->setRotation( aLevel * fac );
 						}
 						else
 						{
@@ -933,7 +1050,7 @@ int main()
 							if( zLevel > 0 )
 							{
 								zLevel--;
-								currView.setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
+								currView->setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
 							}
 						}
 						//v.setSize( v.getSize().x - windowWidth * .05, v.getSize().y - windowHeight * .05 );
@@ -1031,20 +1148,20 @@ int main()
 							}
 						}
 
-						currView.setRotation( aLevel * fac );
+						currView->setRotation( aLevel * fac );
 					}
 					else
 					{
 						if( ev.mouseWheel.delta < 0 && zLevel < 80 )
 						{
 							zLevel++;
-							currView.setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
+							currView->setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
 						}
 
 						else if( ev.mouseWheel.delta > 0 && zLevel > 0 )
 						{
 							zLevel--;
-							currView.setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
+							currView->setSize( 192 / 4 * zLevel, 108 / 4 * zLevel );
 						}
 					}
 				}
@@ -1314,25 +1431,33 @@ int main()
 
 		
 				Vector2f temp = panStart - mPos;
-				currView.move( temp );
+				currView->move( temp );
 		
 				//cout << "diff: " << diff.x << ", " << diff.y << endl;
 				//currView.setCenter( currView.getCenter().x - diff.x, currView.getCenter().y - diff.y  );
 			}
 		}
 
+
+			
+
 		stringstream ss;
 		ss << currentLayer << " / " << allEntities.size();
 		layerText.setString( ss.str() );
 		ss.str( "" );
 		ss.clear();
-		ss << currentFrame << " / " << allEntities.front()->images.size();
+		ss << currentFrame << " / " << camera.size();
 		frameText.setString( ss.str() );
 		ss.str("");
 		ss.clear();
 		Vector2f viewSize = window->getView().getSize();
-		ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << GetCamInfo( currentFrame ).zoomLevel << ", currentFrame: " << currentFrame;
-		camScaleText.setString( ss.str() );
+		
+
+		//ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << GetCamInfo( currentFrame ).zoomLevel << ", currentFrame: " << currentFrame;
+		
+		//cout << "ss: " << ss.str() << endl;
+		//camScaleText.setString( ss.str() );
+		//cout << "blah blah" << endl;
 		//ss << currentFrame << " / " << totalFrames << endl;
 
 		//window->setView( bgView );
@@ -1340,28 +1465,32 @@ int main()
 		//vv.setCenter( currView.getCenter().x, currV
 		//bgSprite.setRotation( currView.getRotation() );
 		window->draw( bgSprite );
-		window->setView( currView );
-       
 
+		//cout << "About to set currview" << endl;
+		window->setView( *currView );
+       
+		
         window->draw(shape);
 
+
+		//cout << "just drew shape" << endl;
 		for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 		{
 			(*it)->Draw( currentFrame, window );
 		}
-
+		//cout << "just drew fff" << endl;
 		/*if( selectedEntities.size() == 1 )
 		{
 			UpdateTransformPoints();
 		}*/
 		DrawSelectedEntityBoxes( currentFrame, window );
-
+		
 		window->setView( uiView );
 		window->draw( layerText );
 		window->draw( frameText );
 		window->draw( camScaleText );
 		//p->Draw( window );
-
+		
         window->display();
     }
 
