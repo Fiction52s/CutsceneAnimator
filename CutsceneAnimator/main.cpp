@@ -36,6 +36,8 @@ int selectedPointIndex;
 Vector2f pastPos;
 list<Entity*> copiedEntities;
 int copyFrame;
+Panel *showPanel;
+Panel *birdPanel;
 
 float rotatePressAngle;
 sf::CircleShape transformCircles[8];
@@ -56,14 +58,30 @@ struct GUI : GUIHandler
 {
 	void ButtonCallback( Button *b, const std::string & e )
 	{
+		
 	}
 
 	void TextBoxCallback( TextBox *tb, const std::string & e )
 	{
 	}
 	
-	void GridSelectorCallback( GridSelector *gs, const std::string & e )
+	void GridSelectorCallback( GridSelector *gs, const std::string & p_name )
 	{
+		string name = p_name;
+		Panel *panel = gs->owner;
+		if( panel == birdPanel )
+		{
+			if( name != "not set" )
+			{
+				int selX = gs->selectedX;
+				int selY = gs->selectedY;
+			}
+			else
+			{
+				cout << "not set" << endl;
+			}
+		}
+		//cout << "blah" << endl;
 	}
 
 	void CheckBoxCallback( CheckBox *cb, const std::string & e )
@@ -708,7 +726,7 @@ void DrawSelectedEntityBoxes( int frame, sf::RenderTarget *target )
 
 	}
 
-	cout << "true end" << endl;
+	//cout << "true end" << endl;
 }
 
 struct Layer
@@ -730,13 +748,23 @@ list<Layer> layers;
 
 int main()
 {	
+	showPanel = NULL;
 	transformRotationRadius = 40;
 	transformScaleRadius = 10;
 
-	GUI g;
-	Panel *p = new Panel( "test", 500, 500, &g );
-	GridSelector *gs = p->AddGridSelector( "blah", Vector2i( 0, 0 ), 5, 5, 64, 64, true, true );
+	/*sf::RectangleShape testr;
+	testr.setFillColor( Color::Magenta );
+	testr.setSize( Vector2f( 200, 200 ) );
+	testr.setPosition( 0, 0 );*/
 
+
+	GUI g;
+	birdPanel = new Panel( "test", 500, 500, &g );
+	birdPanel->pos = Vector2i( 0, 0 );
+	int gridWidth = 7;
+	int gridHeight = 7;
+	GridSelector *gs = birdPanel->AddGridSelector( "blah", Vector2i( 0, 0 ), gridWidth, gridHeight, 64, 64, true, true );
+	showPanel = birdPanel;
 	Tileset * ts_glide = GetTileset( "Bosses/Bird/glide_256x256.png", 256, 256 );
 	Tileset * ts_wing = GetTileset( "Bosses/Bird/wing_256x256.png", 256, 256 );
 	Tileset * ts_kick = GetTileset( "Bosses/Bird/kick_256x256.png", 256, 256 );
@@ -756,6 +784,7 @@ int main()
 		//c.setPosition( transformPoints[i] );
 	}
 
+	int ind = 0;
 	for( list<Tileset*>::iterator it = birdTilesets.begin(); it != birdTilesets.end(); ++it )
 	{
 		Tileset *ts = (*it);
@@ -770,13 +799,14 @@ int main()
 			sp.setTexture( *ts->texture );
 			sp.setTextureRect( ir );
 			sp.setScale( .25, .25 );
-			int x = i % xTiles;
-			int y = i / xTiles;
+			int x = ind % gridWidth;
+			int y = ind / gridWidth;
 
 			//stringstream ss;
 			//ss << 
-			cout << "Setting: " << x << ", " << y << endl;
+			//cout << "Setting: " << x << ", " << y << endl;
 			gs->Set( x, y, sp, "blah" );
+			++ind;
 		}
 		//int xTiles = 
 	}
@@ -828,7 +858,7 @@ int main()
 	//allEntities.front()->images.size();
 	//for( int i = 0; i < numFrames; ++i )
 	//{
-		camera.push_back( CamInfo() );
+	camera.push_back( CamInfo() );
 		/*CamInfo &ci = camera.back();
 		ci.view.setCenter( 0, 0 );
 		ci.view.setSize( 1920, 1080 );
@@ -856,8 +886,10 @@ int main()
 	bgSprite.setTexture( *ts_bg->texture );
 	bgSprite.setOrigin( bgSprite.getLocalBounds().width / 2, bgSprite.getLocalBounds().height / 2 );
 
-	
-    window = new sf::RenderWindow( sf::VideoMode( windowWidth, windowHeight), "Character Animator", sf::Style::Default, sf::ContextSettings( 0, 0, 0, 0, 0 ));
+	std::vector<sf::VideoMode> i = sf::VideoMode::getFullscreenModes();
+	//window = new sf::RenderWindow( i.front(), "Breakneck", sf::Style::None);
+	//sf::VideoMode( windowWidth, windowHeight)
+	window = new sf::RenderWindow( i.front(), "Character Animator", sf::Style::None, sf::ContextSettings( 0, 0, 0, 0, 0 ));
 	
     sf::CircleShape shape(20.f);
     shape.setFillColor(sf::Color::Green);
@@ -867,8 +899,12 @@ int main()
 
 	Vector2f mPos;
 
+	
+
 	View uiView;
+	
 	uiView.setCenter( window->getSize().x / 2, window->getSize().y / 2 );
+	//cout << "center: " << uiView.getCenter().x << ", " << uiView.getCenter().y << endl;
 	uiView.setSize( window->getSize().x, window->getSize().y );
 
 	int numFrames = camera.size();
@@ -1063,6 +1099,12 @@ int main()
 			}
 			case sf::Event::EventType::MouseButtonPressed:
 				{
+					if( showPanel != NULL )
+					{
+						showPanel->Update( true, mousePos.x, mousePos.y );
+						
+						break;
+					}
 					if( ev.mouseButton.button == sf::Mouse::Button::Left && !entityMove
 						&& !entityRotate && !entityScaleX && !entityScaleY && !entityScaleXY )
 					{
@@ -1094,6 +1136,12 @@ int main()
 				}
 			case sf::Event::MouseButtonReleased:
 				{
+					if( showPanel != NULL )
+					{
+						showPanel->Update( false, mousePos.x, mousePos.y );
+						break;
+					}
+
 					if( ev.mouseButton.button == sf::Mouse::Button::Left )
 					{
 						if( mousePressed )
@@ -1468,6 +1516,7 @@ int main()
 
 		//cout << "About to set currview" << endl;
 		window->setView( *currView );
+		//cout << "currViewSize: " << currView->getSize().x << ", " << currView->getSize().y << endl;
        
 		
         window->draw(shape);
@@ -1489,7 +1538,8 @@ int main()
 		window->draw( layerText );
 		window->draw( frameText );
 		window->draw( camScaleText );
-		//p->Draw( window );
+		birdPanel->Draw( window );
+		//window->draw( testr );
 		
         window->display();
     }
