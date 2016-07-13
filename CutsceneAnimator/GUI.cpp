@@ -39,9 +39,11 @@ GridSelector::GridSelector( Vector2i p_pos, int xSizep, int ySizep, int iconX, i
 
 void GridSelector::Set( int xi, int yi, Sprite s, const std::string &name )
 {
+	
 	icons[xi][yi] = s;
 	icons[xi][yi].setPosition( xi * tileSizeX, yi * tileSizeY );
 	names[xi][yi] = name;
+	
 }
 
 void GridSelector::Draw( sf::RenderTarget *target )
@@ -90,7 +92,7 @@ void GridSelector::Draw( sf::RenderTarget *target )
 //returns true if a selection has been made
 bool GridSelector::Update( bool mouseDown, int posx, int posy )
 {
-	//cout << "update: " << posx << ", " << posy << endl;
+	cout << "update: " << posx << ", " << posy << endl;
 	if( !active )
 	{
 		assert( false && "trying to update inactive grid selector" );

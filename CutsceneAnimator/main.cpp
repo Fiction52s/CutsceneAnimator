@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <map>
 #include "GUI.h"
+#include <fstream>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace sf;
@@ -54,6 +56,25 @@ sf::RenderWindow *window;
 bool panning;
 Vector2f panStart;
 
+
+struct StateInfo
+{
+	string name;
+	int frame;
+};
+
+struct EntityType
+{
+	list<Tileset*> tSets;
+	Panel *panel;
+	GridSelector *gs;
+	int **frame;
+};
+
+map<string,EntityType*> entityTypes;
+
+StateInfo birdInfo[7][7];
+
 struct GUI : GUIHandler
 {
 	void ButtonCallback( Button *b, const std::string & e )
@@ -75,6 +96,24 @@ struct GUI : GUIHandler
 			{
 				int selX = gs->selectedX;
 				int selY = gs->selectedY;
+
+				cout << "name: " << name << endl;
+				cout << "frame: " << entityTypes[name]->frame[selX][selY];
+				/*showPanel = NULL;
+				if( birdInfo[selX][selY].name == "glide" )
+				{
+
+				}
+				else if( birdInfo[selX][selY].name == "wing" )
+				{
+				}
+				else if( birdInfo[selX][selY].name == "kick" )
+				{
+				}
+				else if( birdInfo[selX][selY].name == "intro" )
+				{
+				}*/
+				//cout << "selx: " << selX << ", " << selY << endl;
 			}
 			else
 			{
@@ -740,11 +779,176 @@ struct Frame
 
 };
 
+
+
 void AddLayer()
 {
 
 }
 list<Layer> layers;
+
+using namespace boost::filesystem;
+
+GUI g;
+
+void SetupEntityType( EntityType* et )
+{
+	
+
+	int totalNumTiles = 0;
+	for( list<Tileset*>::iterator it = et->tSets.begin(); it != et->tSets.end(); ++it )
+	{
+		Tileset *ts = (*it);
+		Vector2u size = ts->texture->getSize(); 
+		int xTiles = (size.x / ts->tileWidth);
+		int yTiles = (size.y / ts->tileHeight );
+		int numTiles = xTiles * yTiles;
+		totalNumTiles += numTiles;
+	}
+
+	assert( totalNumTiles <= 100 );
+	int gridWidth = 12;
+	int gridHeight = totalNumTiles / 12 + 1; 
+	//cout << "grid height: " << gridHeight << endl;
+	//cout << "total num tiles: " << totalNumTiles << endl;
+
+	
+	et->panel = new Panel( "test", 500, 500, &g );
+	et->panel->pos = Vector2i( 0, 0 );
+
+	et->gs = et->panel->AddGridSelector( "blah", Vector2i( 0, 0 ), gridWidth, gridHeight, 64, 64, true, true );
+
+	
+	et->frame = new int*[gridWidth];
+	for(int i = 0; i < gridWidth; ++i)
+		et->frame[i] = new int[gridHeight];
+
+	int ind = 0;
+	for( list<Tileset*>::iterator it = et->tSets.begin(); it != et->tSets.end(); ++it )
+	{
+		Tileset *ts = (*it);
+		Vector2u size = ts->texture->getSize(); 
+		int xTiles = (size.x / ts->tileWidth);
+		int yTiles = (size.y / ts->tileHeight );
+		int numTiles = xTiles * yTiles;
+		for( int i = 0; i < numTiles; ++i )
+		{
+			IntRect ir = ts->GetSubRect( i );
+			Sprite sp;
+			sp.setTexture( *ts->texture );
+
+			int x = ind % gridWidth;
+			int y = ind / gridWidth;
+
+			et->frame[x][y] = i;
+			/*if( ts == ts_glide )
+			{
+				birdInfo[x][y].name = "glide";
+			}
+			else if( ts == ts_wing )
+			{
+				birdInfo[x][y].name = "wing";
+			}
+			else if( ts == ts_kick )
+			{
+				birdInfo[x][y].name = "kick";
+			}
+			else if( ts == ts_intro )
+			{
+				birdInfo[x][y].name = "intro";
+			}*/
+
+			//birdInfo[x][y].frame = i;
+			sp.setTextureRect( ir );
+			sp.setScale( .25, .25 );
+			
+
+			//stringstream ss;
+			//ss << 
+			//cout << "Setting: " << x << ", " << y << endl;
+			//string test = ;
+			cout << "source name: " << (*it)->sourceName << endl;
+			et->gs->Set( x, y, sp, (*it)->sourceName );
+			++ind;
+		}
+		//int xTiles = 
+	}
+}
+
+void LoadEntityType( const std::string &fileName, const std::string &fullPath )
+{
+	EntityType *et = new EntityType;
+	entityTypes[fileName] = et;
+	//cout << "load : " << fileName << " .... " << fullPath << endl;
+	std::ifstream is;
+	is.open( fullPath );
+	string rep;
+	is >> rep;
+	//entityTilesets[fileName].push_back( GetTileset( rep, xTile, yTile ) );
+	while( !is.eof() )
+	{
+		string file;
+		is >> file;
+		int xTile, yTile;
+		is >> xTile;
+		is >> yTile;
+
+		//entityTilesets[fileName].push_back( GetTileset( file, xTile, yTile ) );
+		entityTypes[file] = et;
+		et->tSets.push_back( GetTileset( file, xTile, yTile ) );
+		//cout << "file: " << file << ", tile: " << xTile << ", " << yTile << endl;
+	}
+
+	SetupEntityType( et );
+	
+}
+
+void LoadEntityTypes()
+{
+	cout << "gonna load up an entity" << endl;
+	path p( current_path() / "Entities" );/// relativePath );
+	try
+	{
+		if (exists(p))    // does p actually exist?
+		{
+			if (is_regular_file(p))        // is p a regular file?
+				cout << p << " size is " << file_size(p) << '\n';
+
+			else if (is_directory(p))      // is p a directory?
+			{
+			cout << p << " is a directory containing:\n";
+
+				boost::filesystem::directory_iterator it( p );
+				//directory_iterator it{p};
+				while (it != directory_iterator() ) 
+				{
+					LoadEntityType( (*it).path().filename().string(), (*it).path().string() );
+					++it;
+				}
+					//std::cout << *it++ << '\n';
+			//copy(directory_iterator(p), directory_iterator(),  // directory_iterator::value_type
+			//	ostream_iterator<directory_entry>(cout, "\n"));  // is directory_entry, which is
+																// converted to a path by the
+																// path stream inserter
+			}
+			else
+				cout << p << " exists, but is neither a regular file nor a directory\n";
+		}
+		else
+		{
+			cout << p << " does not exist\n";
+		}
+	}
+	catch (const boost::filesystem::filesystem_error& ex)
+	{
+		cout << ex.what() << '\n';
+	}
+
+	//ifstream is;
+	//;;is.open( 
+}
+
+
 
 int main()
 {	
@@ -758,22 +962,25 @@ int main()
 	testr.setPosition( 0, 0 );*/
 
 
-	GUI g;
-	birdPanel = new Panel( "test", 500, 500, &g );
-	birdPanel->pos = Vector2i( 0, 0 );
+	//GUI g;
+	//birdPanel = new Panel( "test", 500, 500, &g );
+	//birdPanel->pos = Vector2i( 0, 0 );
 	int gridWidth = 7;
 	int gridHeight = 7;
-	GridSelector *gs = birdPanel->AddGridSelector( "blah", Vector2i( 0, 0 ), gridWidth, gridHeight, 64, 64, true, true );
-	showPanel = birdPanel;
-	Tileset * ts_glide = GetTileset( "Bosses/Bird/glide_256x256.png", 256, 256 );
+
+	//GridSelector *gs = birdPanel->AddGridSelector( "blah", Vector2i( 0, 0 ), gridWidth, gridHeight, 64, 64, true, true );
+	//showPanel = birdPanel;
+	/*Tileset * ts_glide = GetTileset( "Bosses/Bird/glide_256x256.png", 256, 256 );
 	Tileset * ts_wing = GetTileset( "Bosses/Bird/wing_256x256.png", 256, 256 );
 	Tileset * ts_kick = GetTileset( "Bosses/Bird/kick_256x256.png", 256, 256 );
-	Tileset * ts_intro = GetTileset( "Bosses/Bird/intro_256x256.png", 256, 256 );
-	list<Tileset*> birdTilesets;
+	Tileset * ts_intro = GetTileset( "Bosses/Bird/intro_256x256.png", 256, 256 );*/
+
+
+	/*list<Tileset*> birdTilesets;
 	birdTilesets.push_back( ts_glide );
 	birdTilesets.push_back( ts_wing );
 	birdTilesets.push_back( ts_kick );
-	birdTilesets.push_back( ts_intro );
+	birdTilesets.push_back( ts_intro );*/
 
 	for( int i = 0; i < 8; ++i )
 	{
@@ -784,32 +991,11 @@ int main()
 		//c.setPosition( transformPoints[i] );
 	}
 
-	int ind = 0;
-	for( list<Tileset*>::iterator it = birdTilesets.begin(); it != birdTilesets.end(); ++it )
-	{
-		Tileset *ts = (*it);
-		Vector2u size = ts->texture->getSize(); 
-		int xTiles = (size.x / ts->tileWidth);
-		int yTiles = (size.y / ts->tileHeight );
-		int numTiles = xTiles * yTiles;
-		for( int i = 0; i < numTiles; ++i )
-		{
-			IntRect ir = ts->GetSubRect( i );
-			Sprite sp;
-			sp.setTexture( *ts->texture );
-			sp.setTextureRect( ir );
-			sp.setScale( .25, .25 );
-			int x = ind % gridWidth;
-			int y = ind / gridWidth;
+	LoadEntityTypes();
 
-			//stringstream ss;
-			//ss << 
-			//cout << "Setting: " << x << ", " << y << endl;
-			gs->Set( x, y, sp, "blah" );
-			++ind;
-		}
-		//int xTiles = 
-	}
+
+	showPanel = (*entityTypes.begin()).second->panel;
+	
 	//gs->Set( 0, 0 Sprite( 
 	//Panel *p = new Panel(
 
@@ -848,9 +1034,9 @@ int main()
 	Entity *test = new Entity;
 	test->images.push_back( nSpr );
 	Sprite &tSprite = test->GetSprInfo(1)->sprite;
-	tSprite.setTexture( *ts_kick->texture );
-	tSprite.setTextureRect( ts_kick->GetSubRect( 5 ) );
-	tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
+	//tSprite.setTexture( *ts_kick->texture );
+	//tSprite.setTextureRect( ts_kick->GetSubRect( 5 ) );
+	//tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
 	tSprite.setPosition( 400, 400 );
 
 	allEntities.push_back( test );
@@ -1538,7 +1724,10 @@ int main()
 		window->draw( layerText );
 		window->draw( frameText );
 		window->draw( camScaleText );
-		birdPanel->Draw( window );
+
+		if( showPanel != NULL )
+			showPanel->Draw( window );
+		//birdPanel->Draw( window );
 		//window->draw( testr );
 		
         window->display();
