@@ -39,7 +39,9 @@ Vector2f pastPos;
 list<Entity*> copiedEntities;
 int copyFrame;
 Panel *showPanel;
-Panel *birdPanel;
+Panel *entitySelectPanel;
+bool creatingEntity;
+//Panel *birdPanel;
 
 float rotatePressAngle;
 sf::CircleShape transformCircles[8];
@@ -66,12 +68,15 @@ struct StateInfo
 struct EntityType
 {
 	list<Tileset*> tSets;
+	Tileset *ts_rep;
 	Panel *panel;
 	GridSelector *gs;
 	int **frame;
+	string name;
 };
 
 map<string,EntityType*> entityTypes;
+list<EntityType*> entityTypeList;
 
 StateInfo birdInfo[7][7];
 
@@ -90,7 +95,18 @@ struct GUI : GUIHandler
 	{
 		string name = p_name;
 		Panel *panel = gs->owner;
-		if( panel == birdPanel )
+		if( panel == entitySelectPanel )
+		{
+			if( name != "not set" )
+			{
+				//cout << "ENTITY SELECT PANEL SELECTEd" << endl;
+				showPanel = entityTypes[name]->panel;
+				//create new entity here
+				//entityTypes[name]->
+			}
+		}
+		else
+		//if( panel = entityTypes[name]->panel )
 		{
 			if( name != "not set" )
 			{
@@ -141,6 +157,8 @@ struct CamInfo
 	int zoomLevel;
 	int angleLevel;
 };
+
+//Entity *LoadEntity( 
 
 
 
@@ -823,6 +841,14 @@ void SetupEntityType( EntityType* et )
 	for(int i = 0; i < gridWidth; ++i)
 		et->frame[i] = new int[gridHeight];
 
+	/*for( int i = 0; i < gridWidth; ++i )
+	{
+		for( int j = 0; j < gridHeight; ++j )
+		{
+			et->frame[i][j] = -1;
+		}
+	}*/
+
 	int ind = 0;
 	for( list<Tileset*>::iterator it = et->tSets.begin(); it != et->tSets.end(); ++it )
 	{
@@ -867,7 +893,7 @@ void SetupEntityType( EntityType* et )
 			//ss << 
 			//cout << "Setting: " << x << ", " << y << endl;
 			//string test = ;
-			cout << "source name: " << (*it)->sourceName << endl;
+			//cout << "source name: " << (*it)->sourceName << endl;
 			et->gs->Set( x, y, sp, (*it)->sourceName );
 			++ind;
 		}
@@ -877,13 +903,22 @@ void SetupEntityType( EntityType* et )
 
 void LoadEntityType( const std::string &fileName, const std::string &fullPath )
 {
+	//cout << "loading: " << fullPath << ", filename: " << fileName << endl;
 	EntityType *et = new EntityType;
+	
+	et->name = fileName;
+	entityTypeList.push_back( et );
 	entityTypes[fileName] = et;
 	//cout << "load : " << fileName << " .... " << fullPath << endl;
 	std::ifstream is;
 	is.open( fullPath );
 	string rep;
 	is >> rep;
+	int xtRep, ytRep;
+	is >> xtRep;
+	is >> ytRep;
+
+	et->ts_rep = GetTileset( rep, xtRep, ytRep );
 	//entityTilesets[fileName].push_back( GetTileset( rep, xTile, yTile ) );
 	while( !is.eof() )
 	{
@@ -948,10 +983,60 @@ void LoadEntityTypes()
 	//;;is.open( 
 }
 
+void CreateEntity( Vector2f &pos, const std::string &typeName, Tileset *ts, int frame, bool right )
+{
+	EntityType *et = entityTypes[typeName];
 
+	Entity *ent= new Entity;
+
+	int numFrames = camera.size();
+	for( int i = 0; i < numFrames; ++i )
+	{
+		ent->images.push_back( new SprInfo() );
+	}
+	
+	Sprite &tSprite = ent->GetSprInfo(currentFrame)->sprite;
+	tSprite.setTexture( *ts->texture );
+	tSprite.setTextureRect( ts->GetSubRect( frame ) );
+	tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
+	tSprite.setPosition( pos );
+
+	allEntities.push_back( ent );
+}
+
+void SetupSelectEntityPanel()
+{
+	//cout << "Blah " << endl;
+	int numTypes = entityTypeList.size();
+	int entSelectWidth = 12;
+	int entSelectHeight = numTypes / 12 + 1;
+
+
+	entitySelectPanel = new Panel( "entityselect", entSelectWidth * 64, entSelectHeight * 64, &g );
+	GridSelector *esp = entitySelectPanel->AddGridSelector( "blah", Vector2i( 0, 0 ), entSelectWidth, entSelectHeight,
+		64, 64, true, true );
+
+	int tind = 0;
+	for( list<EntityType*>::iterator it = entityTypeList.begin(); it != entityTypeList.end(); ++it )
+	{
+		int x = tind % entSelectWidth;
+		int y = tind / entSelectWidth;
+
+		Sprite repSprite;
+		repSprite.setTexture( *(*it)->ts_rep->texture );
+		IntRect ir = (*it)->ts_rep->GetSubRect( 0 );
+		repSprite.setTextureRect( ir );
+		repSprite.setScale( 64.f / ir.width, 64.f / ir.height );
+		esp->Set( x,y , repSprite, (*it)->name );
+		//(*it)->
+		++tind;
+	}
+}
 
 int main()
 {	
+	
+
 	showPanel = NULL;
 	transformRotationRadius = 40;
 	transformScaleRadius = 10;
@@ -993,8 +1078,13 @@ int main()
 
 	LoadEntityTypes();
 
+	SetupSelectEntityPanel();
+	/*for( int i = 0; i < numTypes; ++i )
+	{
 
-	showPanel = (*entityTypes.begin()).second->panel;
+	}*/
+
+	//showPanel = (*entityTypes.begin()).second->panel;
 	
 	//gs->Set( 0, 0 Sprite( 
 	//Panel *p = new Panel(
@@ -1028,23 +1118,15 @@ int main()
 
 	
 
-	SprInfo *nSpr = new SprInfo();
 	
-	
-	Entity *test = new Entity;
-	test->images.push_back( nSpr );
-	Sprite &tSprite = test->GetSprInfo(1)->sprite;
-	//tSprite.setTexture( *ts_kick->texture );
-	//tSprite.setTextureRect( ts_kick->GetSubRect( 5 ) );
-	//tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
-	tSprite.setPosition( 400, 400 );
-
-	allEntities.push_back( test );
 
 	//allEntities.front()->images.size();
 	//for( int i = 0; i < numFrames; ++i )
 	//{
 	camera.push_back( CamInfo() );
+
+	CreateEntity( Vector2f( 400, 400 ), "Bird", entityTypes["Bird"]->tSets.front(), 0, true );
+
 		/*CamInfo &ci = camera.back();
 		ci.view.setCenter( 0, 0 );
 		ci.view.setSize( 1920, 1080 );
@@ -1219,6 +1301,15 @@ int main()
 						NewCopyFrame();
 						currView = &GetCamInfo( currentFrame ).view;
 						//numFrames = allEntities.front()->images.size();
+					}
+					break;
+				case Keyboard::E:
+					if( ev.key.control )
+					{
+						//cout << "show panel is set" << endl;
+						showPanel = entitySelectPanel;
+						creatingEntity = true;
+						//CreateEntity( mPos, 
 					}
 					break;
 				case Keyboard::PageDown:
