@@ -91,6 +91,39 @@ struct Entity;
 Entity * CreateEntity( /*const std::string &typeName*/ );
 void SetEntity( Entity *ent, int frame, Tileset *ts, int tsIndex, bool facingRight, 
 	Vector2f &pos, float angle, Vector2f &scale );
+
+struct SprInfo
+{
+	SprInfo()
+	{
+		facingRight = true;
+		selected = false;
+		ts = NULL;
+	}
+	Sprite sprite;
+	bool facingRight;
+	bool selected;
+	Tileset *ts;
+	int frame;
+};
+
+struct Entity
+{
+	void SetFaceRight( int frame, bool right );
+	void Draw( int frame, sf::RenderTarget *target );
+
+	list<SprInfo*> images;
+	SprInfo * GetSprInfo( int frame );
+	list<SprInfo*>::iterator GetSprIter( int frame );
+	void FlipX( int frame );
+	void FlipY( int frame );
+	//map<int,SprInfo> images;
+	Vector2f GetPoint( int index );
+	int layer;
+	EntityType *type;
+};
+
+
 struct GUI : GUIHandler
 {
 	void ButtonCallback( Button *b, const std::string & e )
@@ -143,16 +176,35 @@ struct GUI : GUIHandler
 					Entity *e = CreateEntity( );//name );
 					SetEntity( e, currentFrame, ts, et->frame[selX][selY],
 						true, createPos, 0, Vector2f( 1, 1 ) );
+					e->type = et;
 					showPanel = NULL;
 					creatingEntity = false;
 				}
 				else
 				{
 					//just editing
+					assert( selectedEntities.size() == 1 );
+					Entity *e = selectedEntities.front();
+					EntityType *et = e->type;
+
+					Tileset *ts = NULL;
+					for( list<Tileset*>::iterator it = et->tSets.begin(); it != et->tSets.end(); ++it )
+					{
+						cout << (*it)->sourceName << "\t-----" << endl;
+						if( (*it)->sourceName == name )
+						{
+							ts = (*it);
+						}
+					}
+
+					SetEntity( e, currentFrame, ts, et->frame[selX][selY],
+						true, Vector2f(e->GetSprInfo( currentFrame )->sprite.getPosition()), 0, Vector2f( 1, 1 ) );
+
+					showPanel = NULL;
 				}
 
-				cout << "name: " << name << endl;
-				cout << "frame: " << entityTypes[name]->frame[selX][selY];
+				//cout << "name: " << name << endl;
+				//cout << "frame: " << entityTypes[name]->frame[selX][selY];
 				/*showPanel = NULL;
 				if( birdInfo[selX][selY].name == "glide" )
 				{
@@ -312,35 +364,7 @@ Tileset * GetTileset( const string & s, int tileWidth, int tileHeight )
 	//make sure to set up tileset here
 }
 
-struct SprInfo
-{
-	SprInfo()
-	{
-		facingRight = true;
-		selected = false;
-		ts = NULL;
-	}
-	Sprite sprite;
-	bool facingRight;
-	bool selected;
-	Tileset *ts;
-	int frame;
-};
 
-struct Entity
-{
-	void SetFaceRight( int frame, bool right );
-	void Draw( int frame, sf::RenderTarget *target );
-
-	list<SprInfo*> images;
-	SprInfo * GetSprInfo( int frame );
-	list<SprInfo*>::iterator GetSprIter( int frame );
-	void FlipX( int frame );
-	void FlipY( int frame );
-	//map<int,SprInfo> images;
-	Vector2f GetPoint( int index );
-	int layer;
-};
 
 void NewBlankFrame()
 {
@@ -725,6 +749,9 @@ void OpenFromFile( const string &fullPath )
 	{
 		Entity *ent = CreateEntity();
 
+		string typeName;
+		is >> typeName;
+
 		int numActiveFrames;
 		is >> numActiveFrames;
 
@@ -738,6 +765,7 @@ void OpenFromFile( const string &fullPath )
 
 			SetEntity( ent, trueFrame, tilesets[tsIndex], tsIndex, facingRight, Vector2f( xPos, yPos ),
 				rotation, Vector2f( xScale, yScale ) );
+			ent->type = entityTypes[typeName];
 			//ent->GetSp
 
 		}
@@ -802,10 +830,9 @@ void SaveToFile()
 	of << numEntities << endl;
 	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
 	{
-		
 		list<SprInfo*> &sList = (*it)->images;
 		int numActiveFrames = sList.size();
-		of << numActiveFrames << endl;
+		of << (*it)->type->name << " " << numActiveFrames << endl;
 
 		
 		int fIndex = 1;
@@ -1095,7 +1122,7 @@ void SetupEntityType( EntityType* et )
 	//cout << "total num tiles: " << totalNumTiles << endl;
 
 	
-	et->panel = new Panel( "test", 500, 500, &g );
+	et->panel = new Panel( "test", gridWidth * 64, gridHeight * 64, &g );
 	et->panel->pos = Vector2i( 0, 0 );
 
 	et->gs = et->panel->AddGridSelector( "blah", Vector2i( 0, 0 ), gridWidth, gridHeight, 64, 64, true, true );
@@ -1276,6 +1303,8 @@ void SetEntity( Entity *ent, int frame, Tileset *ts, int tsIndex, bool facingRig
 	{
 		ent->FlipX( frame );
 	}
+
+	//ent->type = 
 }
 
 Entity * CreateEntity( /*const std::string &typeName*/ )
@@ -1416,6 +1445,7 @@ int main()
 
 	if( n )
 	{
+		camera.push_back( CamInfo() );
 		//save empty file
 	}
 	else
@@ -1699,6 +1729,14 @@ int main()
 					}
 					break;
 				case Keyboard::E:
+					if( selectedEntities.size() == 1 )
+					{
+						Entity *ent = selectedEntities.front();
+						showPanel = ent->type->panel;//ent->
+						creatingEntity = false;
+						
+					}
+					
 					//if( ev.key.control )
 					//{
 					//	//cout << "show panel is set" << endl;
