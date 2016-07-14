@@ -9,6 +9,7 @@
 #include "GUI.h"
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <set>
 
 using namespace std;
 using namespace sf;
@@ -22,6 +23,7 @@ list<Tileset*> tilesetList;
 list<Entity*> selectedEntities;
 list<Entity*> allEntities;
 
+string fName;
 int currentFrame;
 int currentLayer;
 //int totalLayers;
@@ -41,6 +43,10 @@ int copyFrame;
 Panel *showPanel;
 Panel *entitySelectPanel;
 bool creatingEntity;
+Vector2f createPos;
+sf::CircleShape tempCreateMarker;
+string createTypeName;
+
 //Panel *birdPanel;
 
 float rotatePressAngle;
@@ -80,6 +86,11 @@ list<EntityType*> entityTypeList;
 
 StateInfo birdInfo[7][7];
 
+
+struct Entity;
+Entity * CreateEntity( /*const std::string &typeName*/ );
+void SetEntity( Entity *ent, int frame, Tileset *ts, int tsIndex, bool facingRight, 
+	Vector2f &pos, float angle, Vector2f &scale );
 struct GUI : GUIHandler
 {
 	void ButtonCallback( Button *b, const std::string & e )
@@ -101,6 +112,8 @@ struct GUI : GUIHandler
 			{
 				//cout << "ENTITY SELECT PANEL SELECTEd" << endl;
 				showPanel = entityTypes[name]->panel;
+				createTypeName = name;
+				//createPos = ;
 				//create new entity here
 				//entityTypes[name]->
 			}
@@ -112,6 +125,31 @@ struct GUI : GUIHandler
 			{
 				int selX = gs->selectedX;
 				int selY = gs->selectedY;
+
+				if( creatingEntity )
+				{
+					EntityType *et = entityTypes[createTypeName];
+					//createPos
+					Tileset *ts = NULL;
+					for( list<Tileset*>::iterator it = et->tSets.begin(); it != et->tSets.end(); ++it )
+					{
+						cout << (*it)->sourceName << "\t-----" << endl;
+						if( (*it)->sourceName == name )
+						{
+							ts = (*it);
+						}
+					}
+					assert( ts != NULL );
+					Entity *e = CreateEntity( );//name );
+					SetEntity( e, currentFrame, ts, et->frame[selX][selY],
+						true, createPos, 0, Vector2f( 1, 1 ) );
+					showPanel = NULL;
+					creatingEntity = false;
+				}
+				else
+				{
+					//just editing
+				}
 
 				cout << "name: " << name << endl;
 				cout << "frame: " << entityTypes[name]->frame[selX][selY];
@@ -280,10 +318,13 @@ struct SprInfo
 	{
 		facingRight = true;
 		selected = false;
+		ts = NULL;
 	}
 	Sprite sprite;
 	bool facingRight;
 	bool selected;
+	Tileset *ts;
+	int frame;
 };
 
 struct Entity
@@ -294,6 +335,8 @@ struct Entity
 	list<SprInfo*> images;
 	SprInfo * GetSprInfo( int frame );
 	list<SprInfo*>::iterator GetSprIter( int frame );
+	void FlipX( int frame );
+	void FlipY( int frame );
 	//map<int,SprInfo> images;
 	Vector2f GetPoint( int index );
 	int layer;
@@ -384,6 +427,33 @@ void NewCopyFrame()
 	++currentFrame;
 }
 
+void CopyEntityFrame()
+{
+	bool back = (currentFrame == camera.size());
+	if( selectedEntities.size() == 1 )
+	{
+		Entity *ent = selectedEntities.front();
+		
+		list<SprInfo*>::iterator sprit = ent->GetSprIter( currentFrame );
+
+		SprInfo *nSpr = new SprInfo( *(*sprit) );
+		if( back )
+		{
+			NewBlankFrame();
+			camera.back() = GetCamInfo( currentFrame - 1 );
+			ent->images.back() = nSpr;
+		}
+		else
+		{
+			sprit = ent->GetSprIter( currentFrame + 1 );
+			list<SprInfo*> &sprList = ent->images;
+
+			sprList.insert( sprit, nSpr );
+			//sprList.insert( sprit, (SprInfo*)NULL );
+		}
+	}
+}
+
 void RemoveCurrentFrame()
 {
 	
@@ -463,6 +533,7 @@ void RemoveCurrentFrame()
 
 SprInfo * Entity::GetSprInfo( int frame )
 {
+	
 	int index = 1;
 	for( list<SprInfo*>::iterator it = images.begin(); it != images.end(); ++it )
 	{
@@ -473,6 +544,10 @@ SprInfo * Entity::GetSprInfo( int frame )
 		//if( (*it)->
 		++index;
 	}
+
+	cout << "frame: " << frame << ", image size: " << images.size() << endl;
+	assert( false );
+	return NULL;
 }
 
 list<SprInfo*>::iterator Entity::GetSprIter( int frame )
@@ -575,6 +650,195 @@ void Entity::SetFaceRight( int frame, bool right )
 		oldInfo.facingRight = right;
 		//facingRight = right;
 	}
+}
+
+void Entity::FlipX( int frame )
+{
+	SprInfo &info = *GetSprInfo(frame);
+	
+	IntRect ir = info.sprite.getTextureRect();
+	ir.left += ir.width;
+	ir.width = -ir.width;
+	info.sprite.setTextureRect( ir );
+}
+
+void Entity::FlipY( int frame )
+{
+	SprInfo &info = *GetSprInfo(frame);
+	IntRect ir = info.sprite.getTextureRect();
+	ir.top += ir.height;
+	ir.height = -ir.height;
+	info.sprite.setTextureRect( ir );
+}
+
+void OpenFromFile( const string &fullPath )
+{
+	std::ifstream is;
+	is.open( fullPath );
+
+	if( !is.is_open() )
+	{
+		assert(  "file was invalid" && 0 );
+	}
+
+	int numUniqueTilesets;
+	is >> numUniqueTilesets;
+
+	Tileset **tilesets = new Tileset*[numUniqueTilesets];
+	for( int i = 0; i < numUniqueTilesets; ++i )
+	{
+		string sourceName;
+		is >> sourceName;
+		int tileX, tileY;
+		is >> tileX;
+		is >> tileY;
+
+		tilesets[i] = GetTileset( sourceName, tileX, tileY );
+		
+		//is >> 
+
+		//tilesets[i] = GetTil
+		
+	}
+
+	int numTotalFrames;
+	is >> numTotalFrames;
+
+	for( int i = 0; i < numTotalFrames; ++i )
+	{
+		int centerX, centerY, zoomLevel, angleLevel;
+		is >> centerX >> centerY >> zoomLevel >> angleLevel;
+
+		camera.push_back( CamInfo() );
+		CamInfo &ci = camera.back();
+		ci.view.setCenter( Vector2f( centerX, centerY ) );
+		ci.zoomLevel = zoomLevel;
+		ci.angleLevel = angleLevel;
+		//ci.view.setRotation
+		//cout << "here" << endl;
+	}
+	
+	int numEntities;
+	is >> numEntities;
+
+	for( int i = 0; i < numEntities; ++i )
+	{
+		Entity *ent = CreateEntity();
+
+		int numActiveFrames;
+		is >> numActiveFrames;
+
+		for( int j = 0; j < numActiveFrames; ++j )
+		{
+			int trueFrame, tsIndex, tsFrame, facingRight, xPos, yPos;
+			float rotation;
+			float xScale, yScale;
+			is >> trueFrame >> tsIndex >> tsFrame >> facingRight 
+				>> xPos >> yPos >> rotation >> xScale >> yScale;
+
+			SetEntity( ent, trueFrame, tilesets[tsIndex], tsIndex, facingRight, Vector2f( xPos, yPos ),
+				rotation, Vector2f( xScale, yScale ) );
+			//ent->GetSp
+
+		}
+
+		//CreateEntity( and set entity
+
+	}
+
+	//have all the tilesets stored
+
+	delete [] tilesets;
+}
+
+void SaveToFile()
+{
+	set<Tileset*> unique;
+
+	int numEntities = allEntities.size();
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		list<SprInfo*> &sList = (*it)->images;
+		for( list<SprInfo*>::iterator sit = sList.begin(); sit != sList.end(); ++sit )
+		{
+			if( (*sit) != NULL )
+			{
+				unique.insert( (*sit)->ts );
+			}
+		}
+	}
+
+	int numTilesets = unique.size();
+	map<Tileset*, int> mapping;
+	int index = 0;
+
+	std::ofstream of;
+	of.open( fName );
+
+	if( !of.is_open() )
+	{
+		assert(  "file was invalid" && 0 );
+	}
+	of << numTilesets << endl;
+
+	for( set<Tileset*>::iterator it = unique.begin(); it != unique.end(); ++it )
+	{
+		of << (*it)->sourceName
+		<< " " << (*it)->tileWidth 
+		<< " " << (*it)->tileHeight << endl;
+
+		mapping[(*it)] = index;
+		++index;
+	}
+	
+	int numTotalFrames = camera.size();
+	of << numTotalFrames << endl;
+	for( list<CamInfo>::iterator it = camera.begin(); it != camera.end(); ++it )
+	{
+		of << (*it).view.getCenter().x << " " << (*it).view.getCenter().y 
+			<< " " << (*it).zoomLevel << " " << (*it).angleLevel << endl; 
+	}
+
+	of << numEntities << endl;
+	for( list<Entity*>::iterator it = allEntities.begin(); it != allEntities.end(); ++it )
+	{
+		
+		list<SprInfo*> &sList = (*it)->images;
+		int numActiveFrames = sList.size();
+		of << numActiveFrames << endl;
+
+		
+		int fIndex = 1;
+		for( list<SprInfo*>::iterator sit = sList.begin(); sit != sList.end(); ++sit )
+		{
+			if( (*sit) == NULL )
+			{
+
+			}
+			else
+			{
+				bool facingRight = (*sit)->sprite.getTextureRect().width >= 0;
+				Sprite &spr = (*sit)->sprite;
+					of << fIndex
+					<< " " << mapping[(*sit)->ts]
+					<< " " << (*sit)->frame 
+					<< " " << (int)facingRight 
+					<< " " << spr.getPosition().x << " " << spr.getPosition().y 
+					<< " " << spr.getRotation() 
+					<< " " << spr.getScale().x << " " << spr.getScale().y << endl;
+			}
+			
+
+			++fIndex;
+		}
+	}
+
+	//have a list of all tilesets have assigned them an index
+	//int numEntities = 
+
+
+	//cout << "uniquesize: " << unique.size() << endl;
+	//unique.insert( 
 }
 
 Entity * MouseDownEntity( int frame, Vector2f mouse )
@@ -983,25 +1247,58 @@ void LoadEntityTypes()
 	//;;is.open( 
 }
 
-void CreateEntity( Vector2f &pos, const std::string &typeName, Tileset *ts, int frame, bool right )
+void SetEntity( Entity *ent, int frame, Tileset *ts, int tsIndex, bool facingRight, 
+	Vector2f &pos, float angle, Vector2f &scale )
 {
-	EntityType *et = entityTypes[typeName];
+	//cout << "set entity: " << endl;
+	SprInfo *info = ent->GetSprInfo(frame);
+	//cout << "detour" << endl;
+	if( info == NULL )
+	{
+		//cout << "detour" << endl;
+		list<SprInfo*>::iterator it = ent->GetSprIter( frame );
+		(*it) = new SprInfo();
+		info = (*it);
+	}
 
-	Entity *ent= new Entity;
+	assert( info != NULL );
+	//info->
+	info->ts = ts;
+	info->frame = tsIndex;
+
+	Sprite &tSprite = info->sprite;
+	tSprite.setTexture( *ts->texture );
+	tSprite.setTextureRect( ts->GetSubRect( tsIndex ) );
+	tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
+	tSprite.setPosition( pos );	
+
+	if( !facingRight )
+	{
+		ent->FlipX( frame );
+	}
+}
+
+Entity * CreateEntity( /*const std::string &typeName*/ )
+{
+	//EntityType *et = entityTypes[typeName];
+
+	Entity *ent = new Entity;
 
 	int numFrames = camera.size();
 	for( int i = 0; i < numFrames; ++i )
 	{
-		ent->images.push_back( new SprInfo() );
+		ent->images.push_back( NULL );
 	}
-	
-	Sprite &tSprite = ent->GetSprInfo(currentFrame)->sprite;
-	tSprite.setTexture( *ts->texture );
-	tSprite.setTextureRect( ts->GetSubRect( frame ) );
-	tSprite.setOrigin( tSprite.getLocalBounds().width / 2, tSprite.getLocalBounds().height / 2 );
-	tSprite.setPosition( pos );
 
 	allEntities.push_back( ent );
+
+	return ent;
+}
+
+void DestroyEntity( Entity *ent )
+{
+	delete ent;
+	allEntities.remove( ent );
 }
 
 void SetupSelectEntityPanel()
@@ -1035,7 +1332,42 @@ void SetupSelectEntityPanel()
 
 int main()
 {	
+	string testStr;
 	
+	bool n = false;
+	while( true )
+	{
+		cout << "new (n) or open(o) then press ENTER: ";
+		cin >> testStr;
+		
+		if( testStr == "n" || testStr == "N" )
+		{
+			n = true;
+			break;
+		}
+		else if( testStr == "o" || testStr == "O" )
+		{
+			n = false;
+			break;
+		}
+		else
+		{
+			cout << "error. please correct your input." << endl;
+		}
+	}
+	cout << "file name: ";
+	cin >> fName;
+
+	
+
+
+
+	creatingEntity = false;
+	
+	tempCreateMarker.setRadius( 20 );
+	tempCreateMarker.setFillColor( Color::White );
+	tempCreateMarker.setOrigin( tempCreateMarker.getLocalBounds().width / 2, 
+		tempCreateMarker.getLocalBounds().height / 2 );
 
 	showPanel = NULL;
 	transformRotationRadius = 40;
@@ -1079,6 +1411,20 @@ int main()
 	LoadEntityTypes();
 
 	SetupSelectEntityPanel();
+
+	//camera.push_back( CamInfo() );
+
+	if( n )
+	{
+		//save empty file
+	}
+	else
+	{
+		OpenFromFile( fName );
+		//load file from file
+	}
+
+
 	/*for( int i = 0; i < numTypes; ++i )
 	{
 
@@ -1123,9 +1469,14 @@ int main()
 	//allEntities.front()->images.size();
 	//for( int i = 0; i < numFrames; ++i )
 	//{
-	camera.push_back( CamInfo() );
+	
 
-	CreateEntity( Vector2f( 400, 400 ), "Bird", entityTypes["Bird"]->tSets.front(), 0, true );
+	//Entity *testEnt0 = CreateEntity();// "Bird" ); //entityTypes["Bird"]->tSets.front(), 0, true );
+	//Entity *testEnt1 = CreateEntity();// "Bird" );// entityTypes["Bird"]->tSets.front(), 0, true );
+	//SetEntity( testEnt0, 1, entityTypes["Bird"]->tSets.front(), 0,
+	//					true,  Vector2f( 400, 400 ) , 0, Vector2f( 1, 1 ) );
+	//SetEntity( testEnt1, 1, entityTypes["Bird"]->tSets.front(), 0,
+	//					true,  Vector2f( 100, 100 ) , 0, Vector2f( 1, 1 ) );
 
 		/*CamInfo &ci = camera.back();
 		ci.view.setCenter( 0, 0 );
@@ -1298,19 +1649,63 @@ int main()
 				case Keyboard::N:
 					if( ev.key.alt )
 					{
+						
 						NewCopyFrame();
 						currView = &GetCamInfo( currentFrame ).view;
+						
+
+						
 						//numFrames = allEntities.front()->images.size();
 					}
 					break;
-				case Keyboard::E:
+				case Keyboard::M:
+					if( ev.key.alt )
+					{
+						if( selectedEntities.size() == 1 )
+						{
+							CopyEntityFrame();
+							currView = &GetCamInfo( currentFrame ).view;
+						}
+					}
+					break;
+				case Keyboard::F:
+					if( selectedEntities.size() == 1 )
+					{
+						Entity *ent = selectedEntities.front();
+						ent->FlipX( currentFrame );
+						//ent->SetFaceRight( currentFrame, ent->
+					}
+					break;
+				case Keyboard::S:
 					if( ev.key.control )
 					{
-						//cout << "show panel is set" << endl;
-						showPanel = entitySelectPanel;
-						creatingEntity = true;
-						//CreateEntity( mPos, 
+						SaveToFile();
 					}
+					break;
+				case Keyboard::R:
+					if( ev.key.control )
+					{
+						OpenFromFile( fName );
+					}
+					break;
+				case Keyboard::D:
+					if( ev.key.control )
+					{
+						for( list<Entity*>::iterator it = selectedEntities.begin(); it != selectedEntities.end(); ++it )
+						{
+							DestroyEntity( (*it) );
+						}
+						selectedEntities.clear();
+					}
+					break;
+				case Keyboard::E:
+					//if( ev.key.control )
+					//{
+					//	//cout << "show panel is set" << endl;
+					//	showPanel = entitySelectPanel;
+					//	creatingEntity = true;
+					//	//CreateEntity( mPos, 
+					//}
 					break;
 				case Keyboard::PageDown:
 					{
@@ -1409,6 +1804,22 @@ int main()
 						panning = true;
 						panStart = mPos;//currView.getCenter();
 					}
+					else if( ev.mouseButton.button == sf::Mouse::Button::Right )
+					{
+						showPanel = entitySelectPanel;
+						creatingEntity = true;
+						createPos = mPos;
+						createPos.x = floor( createPos.x + .5 );
+						createPos.y = floor( createPos.y + .5 );
+						tempCreateMarker.setPosition( createPos );
+						//if( ev.key.control )
+					//{
+					//	//cout << "show panel is set" << endl;
+					//	showPanel = entitySelectPanel;
+					//	creatingEntity = true;
+					//	//CreateEntity( mPos, 
+					//}
+					}
 					break;
 				}
 			case sf::Event::MouseButtonReleased:
@@ -1421,6 +1832,17 @@ int main()
 
 					if( ev.mouseButton.button == sf::Mouse::Button::Left )
 					{
+						if( entityMove )
+						{
+							for( list<Entity*>::iterator it = selectedEntities.begin();
+								it != selectedEntities.end(); ++it )
+							{
+								SprInfo * sp = (*it)->GetSprInfo( currentFrame ); 
+								Vector2f po = sp->sprite.getPosition();
+								sp->sprite.setPosition( floor(po.x + .5), floor(po.y + .5 ) );
+							}
+						}
+
 						if( mousePressed )
 						{
 							mousePressed = false;
@@ -1437,6 +1859,9 @@ int main()
 						if( panning )
 						{
 							panning = false;
+							CamInfo &ci = GetCamInfo( currentFrame );
+							Vector2f oldCenter = ci.view.getCenter();
+							ci.view.setCenter( floor(oldCenter.x + .5), floor( oldCenter.y + .5 ) );
 						}
 					}
 					break;
@@ -1811,10 +2236,15 @@ int main()
 		}*/
 		DrawSelectedEntityBoxes( currentFrame, window );
 		
+		if( creatingEntity )
+			window->draw( tempCreateMarker );
+
 		window->setView( uiView );
 		window->draw( layerText );
 		window->draw( frameText );
 		window->draw( camScaleText );
+
+		
 
 		if( showPanel != NULL )
 			showPanel->Draw( window );
