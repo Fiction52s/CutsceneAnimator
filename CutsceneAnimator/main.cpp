@@ -50,6 +50,7 @@ string createTypeName;
 //Panel *birdPanel;
 
 float rotatePressAngle;
+float rotateStartAngle;
 sf::CircleShape transformCircles[8];
 Vector2f transformPoints[8];
 
@@ -59,6 +60,7 @@ int transformScaleRadius;
 //list<CamInfo> camera;
 
 sf::RenderWindow *window;
+
 
 
 bool panning;
@@ -934,10 +936,16 @@ Entity * MouseDownEntity( int frame, Vector2f mouse )
 				Vector2f diff = point - scalePoints[i];
 				if( length( diff ) <= transformRotationRadius )
 				{
-					if( ( i == 0 && diff.x <= 0 && diff.y <= 0 )
-						|| ( i == 1 && diff.x >= 0 && diff.y <= 0 )
-						|| ( i == 2 && diff.x >= 0 && diff.y >= 0 )
-						|| ( i == 3 && diff.x <= 0 && diff.y >= 0 ) )
+
+					Vector2f rightDir = normalize( topRight - topLeft );
+					Vector2f downDir = normalize( botRight - topRight );
+
+					Vector2f diffInfo( dot( diff, rightDir ), dot( diff, downDir ) );
+
+					if( ( i == 0 && diffInfo.x <= 0 && diffInfo.y <= 0 )
+						|| ( i == 1 && diffInfo.x >= 0 && diffInfo.y <= 0 )
+						|| ( i == 2 && diffInfo.x >= 0 && diffInfo.y >= 0 )
+						|| ( i == 3 && diffInfo.x <= 0 && diffInfo.y >= 0 ) )
 					{
 						inScaleCircles = true;
 						break;
@@ -1492,6 +1500,17 @@ int main()
 	camScaleText.setColor( Color::Yellow );
 	camScaleText.setPosition( 700, 760 );
 
+	sf::Text imageScaleText;
+	imageScaleText.setFont( arial );
+	imageScaleText.setCharacterSize( 18 );
+	imageScaleText.setColor( Color::Green );
+	imageScaleText.setPosition( 0, 760 );
+
+	sf::Text imageRotationText;
+	imageRotationText.setFont( arial );
+	imageRotationText.setCharacterSize( 18 );
+	imageRotationText.setColor( Color::Red );
+	imageRotationText.setPosition( 0, 660 );
 	
 
 	
@@ -1803,6 +1822,30 @@ int main()
 						//v.setSize( v.getSize().x, v.getSize().y );
 					}
 					break;
+				case Keyboard::Num1:
+					{
+						if( selectedEntities.size() == 1 )
+						{
+							Entity *e = selectedEntities.front();
+							SprInfo *info = e->GetSprInfo( currentFrame );
+							info->sprite.setRotation( 0 );
+							UpdateTransformPoints();
+						}
+					}
+					break;
+				case Keyboard::Num2:
+					{
+						if( selectedEntities.size() == 2 )
+						{
+							Entity *e = selectedEntities.front();
+							SprInfo *info = e->GetSprInfo( currentFrame );
+							info->sprite.setScale( 1.0,
+								1.0 );//info->sprite.getScale().y );
+							UpdateTransformPoints();
+						}
+					}
+					break;
+					
 				}
 
 				break;
@@ -2015,26 +2058,39 @@ int main()
 						Vector2f blDiff = mPos - botLeft;
 						Vector2f brDiff = mPos - botRight;
 
-						if( length( tlDiff ) <= transformRotationRadius && tlDiff.x <= 0
-							&& tlDiff.y <= 0 )
+						/*Vector2f tlDir = normalize( tlDiff );
+						Vector2f trDir = normalize( trDiff );
+						Vector2f blDir = normalize( blDiff );
+						Vector2f brDir = normalize( brDiff );*/
+						Vector2f rightDir = normalize( topRight - topLeft );
+						Vector2f downDir = normalize( botRight - topRight );
+
+						Vector2f tlInfo( dot( tlDiff, rightDir ), dot( tlDiff, downDir ) );
+						Vector2f trInfo( dot( trDiff, rightDir ), dot( trDiff, downDir ) );
+						Vector2f blInfo( dot( blDiff, rightDir ), dot( blDiff, downDir ) );
+						Vector2f brInfo( dot( brDiff, rightDir ), dot( brDiff, downDir ) );
+						//Vector2f tlInfo( dot( tlDiff 
+
+						if( length( tlDiff ) <= transformRotationRadius && tlInfo.x <= 0
+							&& tlInfo.y <= 0 )
 						{
 							entityRotate = true;
 							//rotatePressAngle =  atan2( tlDiff.y, tlDiff.x );
 						}
-						else if ( length( trDiff ) <= transformRotationRadius && trDiff.x >= 0
-							&& trDiff.y <= 0 )
+						else if ( length( trDiff ) <= transformRotationRadius && trInfo.x >= 0
+							&& trInfo.y <= 0 )
 						{
 							entityRotate = true;
 							//rotatePressAngle =  atan2( trDiff.y, trDiff.x );
 						}
-						else if( length( blDiff ) <= transformRotationRadius && blDiff.x <= 0
-							&& blDiff.y >= 0 )
+						else if( length( blDiff ) <= transformRotationRadius && blInfo.x <= 0
+							&& blInfo.y >= 0 )
 						{
 							entityRotate = true;
 							//rotatePressAngle =  atan2( blDiff.y, blDiff.x );
 						}
-						else if ( length( brDiff ) <= transformRotationRadius && brDiff.x >= 0
-							&& brDiff.y >= 0 )
+						else if ( length( brDiff ) <= transformRotationRadius && brInfo.x >= 0
+							&& brInfo.y >= 0 )
 						{
 							entityRotate = true;
 							//rotatePressAngle =  atan2( brDiff.y, brDiff.x );
@@ -2047,6 +2103,10 @@ int main()
 						}
 						else
 						{
+							assert( selectedEntities.size() == 1 );
+							Entity *e = selectedEntities.front();
+							Sprite &sp = e->GetSprInfo(currentFrame)->sprite;
+							rotateStartAngle = sp.getRotation();
 							//Vector2f diff = pressPos - sp.
 							//rotatePressAngle =  atan2( brDiff.y, brDiff.x );
 	
@@ -2200,11 +2260,22 @@ int main()
 				Vector2f tDiff = pressPos - sp.getPosition();
 				rotatePressAngle = atan2( tDiff.y, tDiff.x );
 				Vector2f diff = mPos - sp.getPosition();
-				float angle = atan2( diff.y, diff.x );
+
+				Vector2f topLeft = transformPoints[0];
+				Vector2f topRight = transformPoints[2];
+				Vector2f botLeft = transformPoints[5];
+
+				Vector2f rightDir = normalize( topRight - topLeft );
+				Vector2f downDir = normalize( botLeft - topLeft );
+
+				Vector2f diffInfo = diff;
+				//Vector2f diffInfo( dot( diff, rightDir ), dot( diff, downDir ) );
+
+				float angle = atan2( diffInfo.y, diffInfo.x );
 				//cout << "current angle: " << angle << endl;
 				//cout << "rotate press angle: " << rotatePressAngle << endl;
 
-				sp.setRotation( (angle - rotatePressAngle) / PI * 180 );
+				sp.setRotation( floor((angle - rotatePressAngle) / PI * 180 + .5 + rotateStartAngle) );
 
 				UpdateTransformPoints();
 				//float originalAngle = 
@@ -2239,6 +2310,21 @@ int main()
 		ss.str("");
 		ss.clear();
 		Vector2f viewSize = window->getView().getSize();
+
+		bool singleEnt = (selectedEntities.size() == 1);
+		if( singleEnt )
+		{
+			Entity *e = selectedEntities.front(); 
+			
+			stringstream stre;
+			SprInfo *info = e->GetSprInfo( currentFrame );
+			stre << info->sprite.getRotation();
+			imageRotationText.setString( stre.str() );
+
+			stringstream stre1;
+			stre1 << info->sprite.getScale().x << ", " << info->sprite.getScale().y;
+			imageScaleText.setString( stre1.str() );
+		}
 		
 
 		//ss << "zoom: " << viewSize.x / windowWidth << ", zoomLevel: " << GetCamInfo( currentFrame ).zoomLevel << ", currentFrame: " << currentFrame;
@@ -2281,7 +2367,11 @@ int main()
 		window->draw( layerText );
 		window->draw( frameText );
 		window->draw( camScaleText );
-
+		if( singleEnt )
+		{
+			window->draw( imageRotationText );
+			window->draw( imageScaleText );
+		}
 		
 
 		if( showPanel != NULL )
