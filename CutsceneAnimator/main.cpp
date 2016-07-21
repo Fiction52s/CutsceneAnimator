@@ -453,16 +453,21 @@ void NewCopyFrame()
 	++currentFrame;
 }
 
-void CopyEntityFrame()
+void CopyEntityFrame( bool forward )
 {
-	bool back = (currentFrame == camera.size());
-	if( selectedEntities.size() == 1 )
-	{
-		Entity *ent = selectedEntities.front();
-		
-		list<SprInfo*>::iterator sprit = ent->GetSprIter( currentFrame );
+	if( selectedEntities.size() != 1 )
+		return;
 
-		SprInfo *nSpr = new SprInfo( *(*sprit) );
+	Entity *ent = selectedEntities.front();
+
+	list<SprInfo*>::iterator sprit = ent->GetSprIter( currentFrame );
+
+	SprInfo *nSpr = new SprInfo( *(*sprit) );
+
+	if( forward )
+	{
+		bool back = (currentFrame == camera.size());
+		
 		if( back )
 		{
 			NewBlankFrame();
@@ -474,10 +479,36 @@ void CopyEntityFrame()
 			sprit = ent->GetSprIter( currentFrame + 1 );
 			list<SprInfo*> &sprList = ent->images;
 
-			sprList.insert( sprit, nSpr );
+			(*sprit) = nSpr;
+			//sprList.insert( sprit, nSpr );
 			//sprList.insert( sprit, (SprInfo*)NULL );
 		}
+		
 	}
+	else 
+	{	
+		if( currentFrame == 1 )
+		{
+			//front
+			currentFrame = 0;
+			NewBlankFrame();
+			camera.back() = GetCamInfo( currentFrame + 1 );
+			ent->images.front() = nSpr;
+
+			
+		}
+		else
+		{
+			cout << "blah" << endl;
+			sprit = ent->GetSprIter( currentFrame - 1 );
+			list<SprInfo*> &sprList = ent->images;
+
+			(*sprit) = nSpr;
+			//sprList.
+			//sprList.insert( sprit, nSpr );
+		}
+	}
+		//bool front = (currentFrame == camera);
 }
 
 void RemoveCurrentFrame()
@@ -1185,7 +1216,8 @@ void SetupEntityType( EntityType* et )
 
 			//birdInfo[x][y].frame = i;
 			sp.setTextureRect( ir );
-			sp.setScale( .25, .25 );
+			sp.setScale( 64.f / ir.width, 64.f / ir.height );
+			//sp.setScale( .25, .25 );
 			
 
 			//stringstream ss;
@@ -1510,7 +1542,7 @@ int main()
 	imageRotationText.setFont( arial );
 	imageRotationText.setCharacterSize( 18 );
 	imageRotationText.setColor( Color::Red );
-	imageRotationText.setPosition( 0, 660 );
+	imageRotationText.setPosition( 0, 720 );
 	
 
 	
@@ -1712,7 +1744,15 @@ int main()
 					{
 						if( selectedEntities.size() == 1 )
 						{
-							CopyEntityFrame();
+							CopyEntityFrame( true );
+							currView = &GetCamInfo( currentFrame ).view;
+						}
+					}
+					else if( ev.key.shift )
+					{
+						if( selectedEntities.size() == 1 )
+						{
+							CopyEntityFrame( false );
 							currView = &GetCamInfo( currentFrame ).view;
 						}
 					}
@@ -2201,6 +2241,7 @@ int main()
 				}
 				
 				//cout << "scaling: " << prop << endl;
+
 				sp.scale( 1, prop );
 				UpdateTransformPoints();
 				//sp.setScale( prop, sp.getScale().y );
@@ -2318,12 +2359,16 @@ int main()
 			
 			stringstream stre;
 			SprInfo *info = e->GetSprInfo( currentFrame );
-			stre << info->sprite.getRotation();
-			imageRotationText.setString( stre.str() );
 
-			stringstream stre1;
-			stre1 << info->sprite.getScale().x << ", " << info->sprite.getScale().y;
-			imageScaleText.setString( stre1.str() );
+			if( info != NULL )
+			{
+				stre << info->sprite.getRotation();
+				imageRotationText.setString( stre.str() );
+
+				stringstream stre1;
+				stre1 << info->sprite.getScale().x << ", " << info->sprite.getScale().y;
+				imageScaleText.setString( stre1.str() );
+			}
 		}
 		
 
