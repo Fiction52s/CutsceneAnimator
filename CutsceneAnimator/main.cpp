@@ -1543,6 +1543,12 @@ int main()
 	imageRotationText.setCharacterSize( 18 );
 	imageRotationText.setColor( Color::Red );
 	imageRotationText.setPosition( 0, 720 );
+
+	sf::Text cursorPosText;
+	cursorPosText.setFont( arial );
+	cursorPosText.setCharacterSize( 22 );
+	cursorPosText.setColor( Color::Green );
+	cursorPosText.setPosition( 0, 800 );
 	
 
 	
@@ -1620,7 +1626,19 @@ int main()
 		pastPos = mPos;
 		Vector2i mousePos = Mouse::getPosition( *window );
 		mPos = window->mapPixelToCoords( mousePos );//Vector2f( mousePos.x, mousePos.y );
-		
+		mPos.x = floor( mPos.x + .5 );
+		mPos.y = floor( mPos.y + .5 );
+		stringstream scursor;
+		scursor << mPos.x << " , " << mPos.y;
+
+		if( selectedEntities.size() == 1 )
+		{
+			Entity *e = selectedEntities.front();
+			SprInfo *spr = e->GetSprInfo( currentFrame );
+			Vector2f p = spr->sprite.getPosition();
+			scursor << "\n\n" << p.x << " , " << p.y;
+		}
+		cursorPosText.setString( scursor.str() );
 		
         while (window->pollEvent(ev))
         {
@@ -1640,6 +1658,25 @@ int main()
 				case Keyboard::Escape:
 					return 0;
 				case Keyboard::Right:
+					if( ( ev.key.shift || ev.key.control ) && !selectedEntities.empty() )
+					{
+						Vector2f diff = Vector2f( 1, 0 );//mPos - pastPos;
+
+						if( ev.key.control )
+							diff.x *= 5;
+						for( list<Entity*>::iterator it = selectedEntities.begin(); it !=
+							selectedEntities.end(); ++it )
+						{
+							Sprite &sp = (*it)->GetSprInfo(currentFrame)->sprite;
+							sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
+						}
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
+
+						break;
+					}
+
 					if( currentFrame < numFrames )
 					{
 						++currentFrame;
@@ -1651,6 +1688,25 @@ int main()
 					}
 					break;
 				case Keyboard::Left:
+					if( ( ev.key.shift || ev.key.control ) && !selectedEntities.empty() )
+					{
+						Vector2f diff = Vector2f( -1, 0 );//mPos - pastPos;
+
+						if( ev.key.control )
+							diff.x *= 5;
+
+						for( list<Entity*>::iterator it = selectedEntities.begin(); it !=
+							selectedEntities.end(); ++it )
+						{
+							Sprite &sp = (*it)->GetSprInfo(currentFrame)->sprite;
+							sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
+						}
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
+
+						break;
+					}
 					if( currentFrame > 1 )
 					{
 						--currentFrame;
@@ -1661,12 +1717,54 @@ int main()
 					}
 					break;
 				case Keyboard::Up:
+
+					if( ( ev.key.shift || ev.key.control ) && !selectedEntities.empty() )
+					{
+						Vector2f diff = Vector2f( 0, -1 );//mPos - pastPos;
+
+						if( ev.key.control )
+							diff.y *= 5;
+
+						for( list<Entity*>::iterator it = selectedEntities.begin(); it !=
+							selectedEntities.end(); ++it )
+						{
+							Sprite &sp = (*it)->GetSprInfo(currentFrame)->sprite;
+							sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
+						}
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
+
+						break;
+					}
+
 					if( currentLayer < numLayers )
 					{
 						++currentLayer;
 					}
 					break;
 				case Keyboard::Down:
+
+					if( ( ev.key.shift || ev.key.control ) && !selectedEntities.empty() )
+					{
+						Vector2f diff = Vector2f( 0, 1 );//mPos - pastPos;
+
+						if( ev.key.control )
+							diff.y *= 5;
+
+						for( list<Entity*>::iterator it = selectedEntities.begin(); it !=
+							selectedEntities.end(); ++it )
+						{
+							Sprite &sp = (*it)->GetSprInfo(currentFrame)->sprite;
+							sp.setPosition( sp.getPosition().x + diff.x, sp.getPosition().y + diff.y );
+						}
+
+						if( selectedEntities.size() == 1 )
+							UpdateTransformPoints();
+
+						break;
+					}
+
 					if( currentLayer > 1 )
 					{
 						--currentLayer;
@@ -1725,6 +1823,12 @@ int main()
 						NewBlankFrame();
 						currView = &GetCamInfo( currentFrame ).view;
 						//cout << "currentFrame : " << currentFrame << endl;
+					}
+					else if( ev.key.shift )
+					{
+						currentFrame--;
+						NewBlankFrame();
+						currView = &GetCamInfo( currentFrame ).view;
 					}
 					break;
 				case Keyboard::N:
@@ -1930,8 +2034,9 @@ int main()
 						showPanel = entitySelectPanel;
 						creatingEntity = true;
 						createPos = mPos;
+						/*createPos = mPos;
 						createPos.x = floor( createPos.x + .5 );
-						createPos.y = floor( createPos.y + .5 );
+						createPos.y = floor( createPos.y + .5 );*/
 						tempCreateMarker.setPosition( createPos );
 						//if( ev.key.control )
 					//{
@@ -2417,6 +2522,7 @@ int main()
 			window->draw( imageRotationText );
 			window->draw( imageScaleText );
 		}
+		window->draw( cursorPosText );
 		
 
 		if( showPanel != NULL )
